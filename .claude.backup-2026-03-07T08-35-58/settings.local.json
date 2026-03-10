@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd ~/Desktop/stock-saas/claude-code-templates && node cli-tool/bin/create-claude-config.js --help 2>&1 | head -30)",
+      "Bash(cd ~/Desktop/stock-saas && node claude-code-templates/cli-tool/bin/create-claude-config.js --template common --directory . --yes 2>&1 | head -50)"
+    ]
+  }
+}
