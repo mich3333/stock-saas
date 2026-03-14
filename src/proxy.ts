@@ -5,6 +5,24 @@ const RATE_LIMIT_WINDOW = 60 * 1000
 const MAX_REQUESTS = 60
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://*.yahoo.com https://*.yimg.com https://s.yimg.com https://finance.yahoo.com https://logo.clearbit.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://query1.finance.yahoo.com https://query2.finance.yahoo.com https://api.stripe.com",
+  "frame-src https://js.stripe.com https://hooks.stripe.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
+function applyCSP(response: NextResponse): NextResponse {
+  response.headers.set('Content-Security-Policy', CSP)
+  return response
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
@@ -22,7 +40,7 @@ export async function proxy(req: NextRequest) {
     } else {
       entry.count++
     }
-    return NextResponse.next()
+    return applyCSP(NextResponse.next())
   }
 
   // Protect dashboard routes
@@ -49,15 +67,15 @@ export async function proxy(req: NextRequest) {
 
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
-      return NextResponse.redirect(new URL('/login', req.url))
+      return applyCSP(NextResponse.redirect(new URL('/login', req.url)))
     }
 
-    return response
+    return applyCSP(response)
   }
 
-  return NextResponse.next()
+  return applyCSP(NextResponse.next())
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/dashboard', '/dashboard/:path*'],
+  matcher: ['/api/:path*', '/dashboard', '/dashboard/:path*', '/((?!_next/static|_next/image|favicon.ico).*)'],
 }

@@ -16,14 +16,14 @@ const DEFAULT_FOLDERS: WatchlistFolder[] = [
   { id: '3', name: 'Dividends', stocks: ['JNJ', 'KO', 'PG', 'VZ'], color: 'purple' },
 ]
 
-const COLORS: Record<string, string> = {
-  blue: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20',
-  green: 'text-green-500 bg-green-50 dark:bg-green-900/20',
-  purple: 'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
+const ICON_COLORS: Record<string, string> = {
+  blue: '#2962FF',
+  green: '#26a69a',
+  purple: '#8b5cf6',
 }
 
 export function WatchlistFolders() {
-  const [folders, setFolders] = useState(DEFAULT_FOLDERS)
+  const [folders] = useState(DEFAULT_FOLDERS)
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set(['1']))
 
   const toggleFolder = (id: string) => {
@@ -35,41 +35,79 @@ export function WatchlistFolders() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl p-6"
+      style={{ background: 'var(--panel-strong)', border: '1px solid var(--border)' }}
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Star size={20} className="text-blue-500" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Watchlists</h2>
+          <Star size={20} style={{ color: 'var(--accent)' }} />
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Watchlists</h2>
         </div>
-        <button className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm font-medium">
+        <button
+          className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-80"
+          style={{ color: 'var(--accent)' }}
+        >
           <Plus size={16} /> New List
         </button>
       </div>
       <div className="space-y-2">
         {folders.map((folder, i) => {
           const isOpen = openFolders.has(folder.id)
+          const iconColor = ICON_COLORS[folder.color] ?? '#2962FF'
           return (
             <div key={folder.id}>
-              <motion.button initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
                 onClick={() => toggleFolder(folder.id)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <span className={`p-1.5 rounded-lg ${COLORS[folder.color]}`}>
+                className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors"
+                style={{ color: 'var(--foreground)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-soft)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span
+                  className="p-1.5 rounded-lg flex-shrink-0"
+                  style={{ background: `${iconColor}18`, color: iconColor }}
+                >
                   {isOpen ? <FolderOpen size={16} /> : <Folder size={16} />}
                 </span>
-                <span className="flex-1 text-left font-medium text-gray-900 dark:text-white text-sm">{folder.name}</span>
-                <span className="text-xs text-gray-400">{folder.stocks.length}</span>
-                <ChevronRight size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                <span className="flex-1 text-left font-medium text-sm" style={{ color: 'var(--foreground)' }}>
+                  {folder.name}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{folder.stocks.length}</span>
+                <ChevronRight
+                  size={14}
+                  style={{ color: 'var(--text-secondary)', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
+                />
               </motion.button>
               <AnimatePresence>
                 {isOpen && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
                     <div className="ml-11 mt-1 space-y-1">
                       {folder.stocks.map(symbol => (
-                        <div key={symbol} className="flex items-center justify-between py-1.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{symbol}</span>
+                        <div
+                          key={symbol}
+                          className="flex items-center justify-between py-1.5 px-3 rounded-lg cursor-pointer transition-colors"
+                          style={{ color: 'var(--foreground)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-soft)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{symbol}</span>
                         </div>
                       ))}
-                      <button className="flex items-center gap-1 text-xs text-blue-600 py-1.5 px-3 hover:text-blue-700">
+                      <button
+                        className="flex items-center gap-1 text-xs py-1.5 px-3 transition-opacity hover:opacity-80"
+                        style={{ color: 'var(--accent)' }}
+                      >
                         <Plus size={12} /> Add stock
                       </button>
                     </div>

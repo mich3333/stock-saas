@@ -185,7 +185,9 @@ export function generatePortfolioHistory(days = 180): { date: string; value: num
   for (let i = days; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    value = value * (1 + (Math.random() - 0.46) * 0.015)
+    // Keep the sample chart deterministic so SSR and client hydration match.
+    const drift = Math.sin((days - i) / 11) * 0.004 + Math.cos((days - i) / 23) * 0.0025 + 0.0008
+    value = value * (1 + drift)
     history.push({
       date: d.toISOString().split('T')[0],
       value: Math.round(value),

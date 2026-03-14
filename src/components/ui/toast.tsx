@@ -30,11 +30,11 @@ const icons = {
   info: Info,
 }
 
-const styles = {
-  success: 'bg-green-50 dark:bg-green-900/40 border-green-200 dark:border-green-700 text-green-800 dark:text-green-300',
-  error: 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300',
-  warning: 'bg-yellow-50 dark:bg-yellow-900/40 border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300',
-  info: 'bg-blue-50 dark:bg-blue-900/40 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300',
+const toastStyles: Record<ToastVariant, React.CSSProperties> = {
+  success: { background: 'rgba(38,166,154,0.12)', border: '1px solid rgba(38,166,154,0.4)', color: '#26A69A' },
+  error: { background: 'rgba(239,83,80,0.12)', border: '1px solid rgba(239,83,80,0.4)', color: '#EF5350' },
+  warning: { background: 'rgba(255,193,7,0.12)', border: '1px solid rgba(255,193,7,0.4)', color: '#FFC107' },
+  info: { background: 'rgba(41,98,255,0.12)', border: '1px solid rgba(41,98,255,0.4)', color: '#2962FF' },
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -62,7 +62,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 60, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg pointer-events-auto max-w-sm ${styles[t.variant]}`}
+                style={toastStyles[t.variant]}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg pointer-events-auto max-w-sm"
               >
                 <Icon size={18} className="flex-shrink-0" />
                 <p className="text-sm font-medium flex-1">{t.message}</p>

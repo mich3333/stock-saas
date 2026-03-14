@@ -19,13 +19,13 @@ export function CommunityFilters({ activeTab, setActiveTab, viewMode, setViewMod
           className={`relative px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
             activeTab === 'popular'
               ? 'text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-700'
+              : 'text-[var(--text-secondary)] hover:text-[var(--foreground)] border border-[var(--border)] bg-[var(--panel)]'
           }`}
         >
           {activeTab === 'popular' && (
             <motion.div
               layoutId="activeTab"
-              className="absolute inset-0 bg-blue-600 rounded-full"
+              className="absolute inset-0 bg-[var(--accent)] rounded-full"
               transition={{ type: 'spring', stiffness: 500, damping: 35 }}
             />
           )}
@@ -36,13 +36,13 @@ export function CommunityFilters({ activeTab, setActiveTab, viewMode, setViewMod
           className={`relative px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
             activeTab === 'editors'
               ? 'text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-700'
+              : 'text-[var(--text-secondary)] hover:text-[var(--foreground)] border border-[var(--border)] bg-[var(--panel)]'
           }`}
         >
           {activeTab === 'editors' && (
             <motion.div
               layoutId="activeTab"
-              className="absolute inset-0 bg-blue-600 rounded-full"
+              className="absolute inset-0 bg-[var(--accent)] rounded-full"
               transition={{ type: 'spring', stiffness: 500, damping: 35 }}
             />
           )}
@@ -51,14 +51,14 @@ export function CommunityFilters({ activeTab, setActiveTab, viewMode, setViewMod
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center justify-between bg-white dark:bg-gray-800/60 rounded-xl px-4 py-2.5 border border-gray-200 dark:border-gray-700/60">
+      <div className="glass-panel-strong flex items-center justify-between rounded-2xl px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-500 transition-colors">
+          <button className="flex items-center gap-1.5 text-sm font-medium text-[var(--foreground)] hover:text-[var(--accent)] transition-colors">
             <SlidersHorizontal size={14} />
             All Ideas
           </button>
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700" />
-          <button className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors">
+          <div className="w-px h-5 bg-[var(--border)]" />
+          <button className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors">
             <Video size={14} />
             Videos only
           </button>
@@ -67,7 +67,7 @@ export function CommunityFilters({ activeTab, setActiveTab, viewMode, setViewMod
           <button
             onClick={() => setViewMode('grid')}
             className={`p-1.5 rounded-lg transition-colors ${
-              viewMode === 'grid' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'text-gray-400 hover:text-gray-600'
+              viewMode === 'grid' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--foreground)]'
             }`}
           >
             <Grid3X3 size={16} />
@@ -75,7 +75,7 @@ export function CommunityFilters({ activeTab, setActiveTab, viewMode, setViewMod
           <button
             onClick={() => setViewMode('list')}
             className={`p-1.5 rounded-lg transition-colors ${
-              viewMode === 'list' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'text-gray-400 hover:text-gray-600'
+              viewMode === 'list' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--foreground)]'
             }`}
           >
             <LayoutList size={16} />

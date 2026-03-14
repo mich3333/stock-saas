@@ -13,11 +13,23 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'md', children, loading, disabled, ...props }, ref) => {
     const variants = {
-      default: 'bg-blue-600 text-white hover:bg-blue-700',
-      outline: 'border border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 dark:text-white',
-      ghost: 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-white',
-      destructive: 'bg-red-600 text-white hover:bg-red-700',
-      success: 'bg-green-600 text-white hover:bg-green-700',
+      default: '',
+      outline: '',
+      ghost: '',
+      destructive: '',
+      success: '',
+    }
+    const variantStyles: Record<string, React.CSSProperties> = {
+      default: {
+        background: 'linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, white 30%))',
+        color: '#fff',
+        border: '1px solid color-mix(in srgb, var(--accent) 80%, white 20%)',
+        boxShadow: '0 14px 32px color-mix(in srgb, var(--accent) 24%, transparent)',
+      },
+      outline: { border: '1px solid var(--border)', background: 'color-mix(in srgb, var(--panel) 70%, transparent)', color: 'var(--foreground)' },
+      ghost: { background: 'transparent', color: 'var(--foreground)' },
+      destructive: { background: 'var(--red)', color: '#fff' },
+      success: { background: 'var(--green)', color: '#08111f' },
     }
     const sizes = {
       sm: 'px-3 py-1.5 text-sm',
@@ -32,8 +44,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         disabled={disabled || loading}
+        style={variantStyles[variant]}
         className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
+          'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
           variants[variant],
           sizes[size],
           className

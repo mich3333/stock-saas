@@ -17,6 +17,8 @@ export interface Subscription {
   stripe_subscription_id: string | null;
   tier: Tier;
   status: 'active' | 'canceled' | 'past_due' | 'trialing';
+  cancel_at_period_end: boolean;
+  cancel_at: string | null;
   current_period_start: string | null;
   current_period_end: string | null;
   created_at: string;

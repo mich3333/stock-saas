@@ -2,55 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStockQuote, getHistoricalData } from '@/lib/yahoo-finance'
 import { CACHE_TTL, cacheWrapper } from '@/lib/cache'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { sanitizeSymbol, validateSymbol } from '@/lib/security'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { Database } from '@/types/database'
 import { SubscriptionTier } from '@/lib/tier-limits'
-import { STOCKS_50 } from '@/lib/stockData'
-
-function getMockQuote(symbol: string) {
-  const stock = STOCKS_50.find((s) => s.symbol === symbol)
-  if (!stock) return null
-  const jitter = (Math.random() - 0.5) * stock.price * 0.002
-  return {
-    symbol: stock.symbol,
-    shortName: stock.company,
-    regularMarketPrice: +(stock.price + jitter).toFixed(2),
-    regularMarketChange: +(stock.change + jitter).toFixed(2),
-    regularMarketChangePercent: +stock.changePct.toFixed(2),
-    regularMarketVolume: stock.volume,
-    marketCap: stock.marketCap,
-    trailingPE: stock.pe,
-    fiftyTwoWeekHigh: stock.week52High,
-    fiftyTwoWeekLow: stock.week52Low,
-  }
-}
-
-function getMockHistory(symbol: string) {
-  const stock = STOCKS_50.find((s) => s.symbol === symbol)
-  const basePrice = stock?.price ?? 100
-  const now = Date.now()
-  return Array.from({ length: 30 }, (_, i) => {
-    const date = new Date(now - (29 - i) * 24 * 60 * 60 * 1000)
-    const open = basePrice * (0.95 + Math.random() * 0.1)
-    const close = basePrice * (0.95 + Math.random() * 0.1)
-    return {
-      date: date.toISOString().split('T')[0],
-      open: +open.toFixed(2),
-      high: +(Math.max(open, close) * (1 + Math.random() * 0.02)).toFixed(2),
-      low: +(Math.min(open, close) * (1 - Math.random() * 0.02)).toFixed(2),
-      close: +close.toFixed(2),
-      volume: Math.floor(stock?.volume ?? 1000000 * (0.8 + Math.random() * 0.4)),
-    }
-  })
-}
+import { getSupabaseEnv } from '@/lib/env'
 
 async function getUserTier(): Promise<SubscriptionTier> {
   try {
+    const { url, anonKey } = getSupabaseEnv()
     const cookieStore = await cookies()
     const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url,
+      anonKey,
       { cookies: { getAll() { return cookieStore.getAll() } } }
     )
     const { data: { user } } = await supabase.auth.getUser()
@@ -76,12 +41,18 @@ export async function GET(
     )
   }
 
+  const VALID_PERIODS = new Set(['1mo', '3mo', '6mo', '1y', '2y', '5y'])
+
   try {
     const { symbol } = await params
-    const sym = symbol.toUpperCase()
+    const sym = sanitizeSymbol(symbol)
+    if (!validateSymbol(sym)) {
+      return NextResponse.json({ error: 'Invalid symbol' }, { status: 400 })
+    }
     const { searchParams } = new URL(request.url)
     const includeHistory = searchParams.get('history') === 'true'
-    const period = (searchParams.get('period') as '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y') || '1mo'
+    const rawPeriod = searchParams.get('period') ?? '1mo'
+    const period = (VALID_PERIODS.has(rawPeriod) ? rawPeriod : '1mo') as '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y'
 
     const quote = await cacheWrapper(`quote:${sym}`, CACHE_TTL.STOCK_QUOTE, () => getStockQuote(sym))
 
@@ -92,16 +63,15 @@ export async function GET(
 
     return NextResponse.json({ quote })
   } catch (error) {
-    console.error('Stock fetch error, falling back to mock data:', error)
-    const { symbol } = await params
-    const sym = symbol.toUpperCase()
-    const { searchParams } = new URL(request.url)
-    const includeHistory = searchParams.get('history') === 'true'
-    const quote = getMockQuote(sym)
-    if (!quote) return NextResponse.json({ error: 'Symbol not found' }, { status: 404 })
-    if (includeHistory) {
-      return NextResponse.json({ quote, history: getMockHistory(sym) })
-    }
-    return NextResponse.json({ quote })
+    console.error('Stock fetch error', error)
+    return NextResponse.json(
+      { error: 'Live market data is temporarily unavailable for this symbol' },
+      { status: 502 }
+    )
   }
 }
+
+export function POST() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } }) }
+export function PUT() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } }) }
+export function DELETE() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } }) }
+export function PATCH() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } }) }

@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { StatCard } from '@/components/ui/stat-card'
 import { StockCard } from '@/components/stock/stock-card'
@@ -10,7 +10,9 @@ import { NewsFeed } from '@/components/news/news-feed'
 import { EarningsCalendar } from '@/components/earnings/earnings-calendar'
 import { PortfolioTracker } from '@/components/portfolio/portfolio-tracker'
 import { DraggableGrid, DashboardWidget } from '@/components/dashboard/draggable-grid'
-import { Search, BarChart2, Activity } from 'lucide-react'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
+import { SkeletonCard } from '@/components/ui/skeleton'
+import { Search, BarChart2, Activity, GripHorizontal, BarChart } from 'lucide-react'
 import type { QuoteData, ChartPoint } from '@/types'
 
 const POPULAR_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META', 'NFLX']
@@ -18,10 +20,14 @@ const POPULAR_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META'
 interface MarketIndex {
   name: string
   symbol: string
+  category: string
   value: number
   change: number
   changePercent: number
   isPositive: boolean
+  volume: number
+  dayHigh: number
+  dayLow: number
 }
 
 interface StockData {
@@ -30,17 +36,26 @@ interface StockData {
   history: ChartPoint[]
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [stocks, setStocks] = useState<StockData[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(() => searchParams.get('symbol'))
   const [watchlistId, setWatchlistId] = useState<string | null>(null)
   const [watchlistItems, setWatchlistItems] = useState<{ id: string; symbol: string }[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isDragMode, setIsDragMode] = useState(false)
   const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([])
   const [indicesLoading, setIndicesLoading] = useState(true)
+
+  const formatCompactNumber = (value: number) => {
+    if (!value) return 'N/A'
+    if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`
+    if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`
+    if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`
+    return value.toFixed(0)
+  }
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -67,8 +82,8 @@ export default function DashboardPage() {
           const { indices } = await res.json()
           setMarketIndices(indices || [])
         }
-      } catch (error) {
-        console.error('Failed to fetch indices:', error)
+      } catch {
+        // non-critical; market indices will be empty
       } finally {
         setIndicesLoading(false)
       }
@@ -81,7 +96,7 @@ export default function DashboardPage() {
       try {
         const results = await Promise.allSettled(
           POPULAR_SYMBOLS.map(async (symbol) => {
-            const res = await fetch(`/api/stocks/${symbol}`)
+            const res = await fetch(`/api/stocks/${symbol}?history=true`)
             if (!res.ok) throw new Error(`Failed to fetch ${symbol}`)
             const data = await res.json()
             return { symbol, ...data } as StockData
@@ -91,8 +106,8 @@ export default function DashboardPage() {
           .filter((r): r is PromiseFulfilledResult<StockData> => r.status === 'fulfilled')
           .map((r) => r.value)
         setStocks(successful)
-      } catch (error) {
-        console.error('Failed to fetch stocks:', error)
+      } catch {
+        // stocks will remain empty; StockCard grid won't render
       } finally {
         setLoading(false)
       }
@@ -142,31 +157,32 @@ export default function DashboardPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="text-xl font-semibold mb-4"
-            style={{ color: '#D1D4DC' }}
+            style={{ color: 'var(--foreground)' }}
           >
             Market Overview
           </motion.h2>
           {indicesLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="rounded-xl h-24 animate-pulse"
-                  style={{ background: '#1E222D', border: '1px solid #2A2E39' }}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <SkeletonCard key={i} className="h-24" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {marketIndices.map((idx, i) => (
                 <StatCard
                   key={idx.symbol}
-                  title={idx.name}
+                  title={`${idx.name} · ${idx.category}`}
                   value={idx.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   change={`${idx.isPositive ? '+' : ''}${idx.changePercent.toFixed(2)}%`}
                   isPositive={idx.isPositive}
                   delay={i * 0.1}
                   icon={<BarChart2 size={18} />}
+                  meta={[
+                    { label: 'Symbol', value: idx.symbol },
+                    { label: 'Range', value: `${idx.dayLow?.toFixed(2) ?? 'N/A'} - ${idx.dayHigh?.toFixed(2) ?? 'N/A'}` },
+                    { label: 'Volume', value: formatCompactNumber(idx.volume) },
+                  ]}
                 />
               ))}
             </div>
@@ -197,19 +213,15 @@ export default function DashboardPage() {
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2"
               size={18}
-              style={{ color: '#787B86' }}
+              style={{ color: 'var(--text-secondary)' }}
             />
             <input
               type="text"
               placeholder="Search stocks by symbol or name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl outline-none text-sm"
-              style={{
-                background: '#1E222D',
-                border: '1px solid #2A2E39',
-                color: '#D1D4DC',
-              }}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none text-sm border border-[var(--border)] bg-[var(--panel)] text-[var(--foreground)] placeholder:text-[var(--text-secondary)]"
+              style={{ boxShadow: 'var(--shadow-lg)' }}
             />
           </div>
 
@@ -218,20 +230,16 @@ export default function DashboardPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
             className="text-xl font-semibold mb-4 flex items-center gap-2"
-            style={{ color: '#D1D4DC' }}
+            style={{ color: 'var(--foreground)' }}
           >
-            <Activity size={20} style={{ color: '#2962FF' }} />
+            <Activity size={20} style={{ color: 'var(--accent)' }} />
             Popular Stocks
           </motion.h2>
 
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {POPULAR_SYMBOLS.map((s) => (
-                <div
-                  key={s}
-                  className="rounded-2xl h-44 animate-pulse"
-                  style={{ background: '#1E222D', border: '1px solid #2A2E39' }}
-                />
+                <SkeletonCard key={s} className="h-44" />
               ))}
             </div>
           ) : (
@@ -266,7 +274,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-center py-16"
-              style={{ color: '#787B86' }}
+              style={{ color: 'var(--text-secondary)' }}
             >
               <Search size={48} className="mx-auto mb-4 opacity-30" />
               <p className="text-lg">No stocks found for &quot;{searchQuery}&quot;</p>
@@ -292,18 +300,57 @@ export default function DashboardPage() {
       label: 'Earnings Calendar',
       content: <EarningsCalendar />,
     },
-  ].filter((w) => w.id !== 'stock-chart' || selectedStock != null)
+  ].map((w) => w.id === 'stock-chart' && !selectedStock ? {
+    ...w,
+    content: (
+      <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: 'var(--text-secondary)' }}>
+        <BarChart size={48} className="opacity-20" />
+        <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>No stock selected</p>
+        <p className="text-xs">Click any stock card below to view its chart</p>
+      </div>
+    ),
+  } : w)
 
   return (
-    <div className="min-h-screen" style={{ background: '#131722' }}>
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="max-w-7xl mx-auto px-4 py-6"
-      >
-        <DraggableGrid widgets={widgets} isDragMode={isDragMode} />
-      </motion.div>
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="max-w-7xl mx-auto px-4 py-6"
+        >
+          <div className="glass-panel-strong rounded-[1.75rem] p-4 md:p-5 mb-4">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <p className="section-kicker text-xs mb-2">Workspace</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-[var(--foreground)]">Market dashboard</h1>
+                <p className="text-sm text-[var(--text-secondary)] mt-2">Track live movers, manage your watchlist, and jump into charts without leaving the desk.</p>
+              </div>
+              <button
+                onClick={() => setIsDragMode(v => !v)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
+                  isDragMode
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--panel)] text-[var(--text-secondary)] border border-[var(--border)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                <GripHorizontal size={13} />
+                {isDragMode ? 'Done Rearranging' : 'Rearrange'}
+              </button>
+            </div>
+          </div>
+          <DraggableGrid widgets={widgets} isDragMode={isDragMode} />
+        </motion.div>
+      </div>
+    </ErrorBoundary>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardContent />
+    </Suspense>
   )
 }

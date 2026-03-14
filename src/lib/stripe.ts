@@ -35,6 +35,31 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS
 
+export function getStripeConfigStatus() {
+  const missing: string[] = []
+  if (!process.env.STRIPE_SECRET_KEY) missing.push('STRIPE_SECRET_KEY')
+  if (!process.env.STRIPE_PRO_PRICE_ID) missing.push('STRIPE_PRO_PRICE_ID')
+  if (!process.env.STRIPE_ENTERPRISE_PRICE_ID) missing.push('STRIPE_ENTERPRISE_PRICE_ID')
+
+  return {
+    valid: missing.length === 0,
+    missing,
+  }
+}
+
+export function getPlanPriceId(tier: Exclude<PlanKey, 'free'>): string | null {
+  const priceId = STRIPE_PRICES[tier]
+  if (!priceId || priceId.includes('placeholder')) return null
+  return priceId
+}
+
+export function getTierFromPriceId(priceId: string | null | undefined): Exclude<PlanKey, 'free'> | 'free' {
+  if (!priceId) return 'free'
+  if (priceId === STRIPE_PRICES.pro) return 'pro'
+  if (priceId === STRIPE_PRICES.enterprise) return 'enterprise'
+  return 'free'
+}
+
 export async function getOrCreateCustomer(userId: string, email: string): Promise<string> {
   const existing = await stripe.customers.list({ email, limit: 1 })
   if (existing.data.length > 0) {
@@ -54,7 +79,7 @@ export async function getOrCreateCustomer(userId: string, email: string): Promis
 export async function getUserSubscription(customerId: string): Promise<Stripe.Subscription | null> {
   const subscriptions = await stripe.subscriptions.list({
     customer: customerId,
-    status: 'active',
+    status: 'all',
     limit: 1,
   })
   return subscriptions.data[0] || null

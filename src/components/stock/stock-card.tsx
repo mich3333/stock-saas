@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Plus, Minus } from 'lucide-react'
-import { formatCurrency, formatPercent, formatLargeNumber, cn } from '@/lib/utils'
+import { formatCurrency, formatPercent, formatLargeNumber } from '@/lib/utils'
 
 interface StockCardProps {
   symbol: string
@@ -35,6 +35,7 @@ export function StockCard({
   inWatchlist,
 }: StockCardProps) {
   const isPositive = change >= 0
+  const changeColor = isPositive ? 'var(--green)' : 'var(--red)'
 
   return (
     <motion.div
@@ -42,49 +43,79 @@ export function StockCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.4 }}
       whileHover={{ y: -2 }}
-      className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 cursor-pointer"
+      style={{
+        background: 'var(--panel)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        padding: '1.25rem',
+        cursor: 'pointer',
+      }}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-gray-900 dark:text-white">{symbol}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{symbol}</span>
             <span
-              className={cn(
-                'flex items-center gap-1 text-sm font-medium',
-                isPositive ? 'text-green-500' : 'text-red-500'
-              )}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: changeColor,
+              }}
             >
               {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
               {formatPercent(changePercent)}
             </span>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[150px]">{name}</p>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              marginTop: '0.125rem',
+              maxWidth: 150,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {name}
+          </p>
         </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(price)}</p>
-          <p className={cn('text-sm', isPositive ? 'text-green-500' : 'text-red-500')}>
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--foreground)' }}>{formatCurrency(price)}</p>
+          <p style={{ fontSize: '0.875rem', color: changeColor }}>
             {isPositive ? '+' : ''}
             {formatCurrency(change)}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0.5rem',
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
+        }}
+      >
         <div>
-          <span className="font-medium">Vol:</span> {formatLargeNumber(volume)}
+          <span style={{ fontWeight: 500 }}>Vol:</span> {formatLargeNumber(volume)}
         </div>
         {marketCap && (
           <div>
-            <span className="font-medium">MCap:</span> {formatLargeNumber(marketCap)}
+            <span style={{ fontWeight: 500 }}>MCap:</span> {formatLargeNumber(marketCap)}
           </div>
         )}
         {pe && (
           <div>
-            <span className="font-medium">P/E:</span> {pe.toFixed(2)}
+            <span style={{ fontWeight: 500 }}>P/E:</span> {pe.toFixed(2)}
           </div>
         )}
         <div>
-          <span className="font-medium">52W:</span> {formatCurrency(low52w)} - {formatCurrency(high52w)}
+          <span style={{ fontWeight: 500 }}>52W:</span> {formatCurrency(low52w)} - {formatCurrency(high52w)}
         </div>
       </div>
 
@@ -94,12 +125,24 @@ export function StockCard({
             e.stopPropagation()
             onAdd(symbol)
           }}
-          className={cn(
-            'mt-3 w-full flex items-center justify-center gap-1 text-xs py-1.5 rounded-lg transition-colors',
-            inWatchlist
-              ? 'bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20'
-              : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20'
-          )}
+          style={{
+            marginTop: '0.75rem',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.25rem',
+            fontSize: '0.75rem',
+            padding: '0.375rem 0',
+            borderRadius: 8,
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'opacity 0.15s',
+            background: inWatchlist ? 'rgba(239, 83, 80, 0.15)' : 'rgba(41, 98, 255, 0.15)',
+            color: inWatchlist ? 'var(--red)' : 'var(--accent)',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
         >
           {inWatchlist ? (
             <>

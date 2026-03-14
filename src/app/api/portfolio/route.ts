@@ -2,22 +2,51 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { Database } from '@/types/database'
-import yahooFinance from 'yahoo-finance2'
+import { getSupabaseEnv } from '@/lib/env'
+import { checkRateLimit } from '@/lib/rate-limiter'
+import { SubscriptionTier } from '@/lib/tier-limits'
+import { sanitizeSymbol, validateSymbol } from '@/lib/security'
+import { getStockQuote } from '@/lib/yahoo-finance'
+
+async function getUserTier(supabase: Awaited<ReturnType<typeof makeSupabase>>, userId: string): Promise<SubscriptionTier> {
+  try {
+    const { data } = await supabase.from('profiles').select('tier').eq('id', userId).single()
+    return (data as { tier: SubscriptionTier } | null)?.tier ?? 'free'
+  } catch {
+    return 'free'
+  }
+}
 
 async function makeSupabase() {
+  const { url, anonKey } = getSupabaseEnv()
   const cookieStore = await cookies()
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     { cookies: { getAll() { return cookieStore.getAll() } } }
   )
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-  const supabase = await makeSupabase()
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1'
+  let supabase: Awaited<ReturnType<typeof makeSupabase>>
+  try {
+    supabase = await makeSupabase()
+  } catch {
+    return NextResponse.json({ data: [] })
+  }
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ data: [] })
+
+  const tier = await getUserTier(supabase, user.id)
+  const { allowed, retryAfter } = checkRateLimit(ip, tier)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too Many Requests' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+    )
+  }
 
   const { data: rawPositions, error } = await supabase
     .from('portfolio_positions')
@@ -25,7 +54,7 @@ export async function GET() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ data: [], error: 'Failed to load portfolio' })
 
   type PositionRow = Database['public']['Tables']['portfolio_positions']['Row']
   const positions = (rawPositions || []) as PositionRow[]
@@ -38,12 +67,12 @@ export async function GET() {
     try {
       const results = await Promise.allSettled(
         symbols.map(async (sym) => {
-          const q = await yahooFinance.quote(sym) as Record<string, any>
+          const q = await getStockQuote(sym)
           return {
             symbol: sym,
-            price: (q.regularMarketPrice as number) ?? 0,
-            change: (q.regularMarketChange as number) ?? 0,
-            changePercent: (q.regularMarketChangePercent as number) ?? 0,
+            price: q.regularMarketPrice ?? 0,
+            change: q.regularMarketChange ?? 0,
+            changePercent: q.regularMarketChangePercent ?? 0,
           }
         })
       )
@@ -70,34 +99,56 @@ export async function GET() {
   return NextResponse.json({ portfolio })
   } catch (error) {
     console.error('GET /api/portfolio error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ data: [] })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1'
     const supabase = await makeSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const tier = await getUserTier(supabase, user.id)
+    const { allowed, retryAfter } = checkRateLimit(ip, tier)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
+    }
 
     const body = await request.json()
     const { symbol, shares, avg_price } = body
     if (!symbol || shares == null || avg_price == null) {
       return NextResponse.json({ error: 'Missing required fields: symbol, shares, avg_price' }, { status: 400 })
     }
+    const upperSymbol = sanitizeSymbol(String(symbol))
+    if (!validateSymbol(upperSymbol)) {
+      return NextResponse.json({ error: 'Invalid symbol format' }, { status: 400 })
+    }
+    const sharesNum = Number(shares)
+    const avgPriceNum = Number(avg_price)
+    if (!Number.isFinite(sharesNum) || sharesNum <= 0) {
+      return NextResponse.json({ error: 'shares must be a positive number' }, { status: 400 })
+    }
+    if (!Number.isFinite(avgPriceNum) || avgPriceNum <= 0) {
+      return NextResponse.json({ error: 'avg_price must be a positive number' }, { status: 400 })
+    }
 
     const { data, error } = await supabase
       .from('portfolio_positions')
       .insert({
         user_id: user.id,
-        symbol: symbol.toUpperCase(),
-        shares,
-        avg_price,
+        symbol: upperSymbol,
+        shares: sharesNum,
+        avg_price: avgPriceNum,
       })
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return NextResponse.json({ error: 'Failed to add position' }, { status: 400 })
     return NextResponse.json({ data }, { status: 201 })
   } catch (error) {
     console.error('POST /api/portfolio error:', error)
@@ -107,9 +158,19 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1'
     const supabase = await makeSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const tier = await getUserTier(supabase, user.id)
+    const { allowed, retryAfter } = checkRateLimit(ip, tier)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
+    }
 
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'Missing position id' }, { status: 400 })
@@ -120,10 +181,13 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
       .eq('user_id', user.id)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return NextResponse.json({ error: 'Failed to delete position' }, { status: 400 })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('DELETE /api/portfolio error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export function PUT() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, POST, DELETE' } }) }
+export function PATCH() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, POST, DELETE' } }) }

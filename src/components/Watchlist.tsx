@@ -1,37 +1,340 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { Search, Plus, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
-interface WatchItem {
-  symbol: string
-  name: string
-  price: number
-  change: number
-  changePct: number
+import { useState, useCallback, useRef, useEffect } from 'react'
+import {
+  Search,
+  Plus,
+  X,
+  TrendingUp,
+  TrendingDown,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  RefreshCw,
+} from 'lucide-react'
+import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { useWatchlist, WatchItem } from '@/hooks/useWatchlist'
+
+// ─── Mini Sparkline SVG ──────────────────────────────────────────────────────
+
+function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
+  if (!data || data.length < 2) return null
+
+  const w = 52
+  const h = 22
+  const min = Math.min(...data)
+  const max = Math.max(...data)
+  const range = max - min || 1
+
+  const xScale = (i: number) => (i / (data.length - 1)) * w
+  const yScale = (v: number) => h - ((v - min) / range) * (h - 3) - 1.5
+
+  const linePts = data.map((v, i) => `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(' ')
+  const fillD =
+    `M${xScale(0).toFixed(1)},${h} ` +
+    data.map((v, i) => `L${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(' ') +
+    ` L${xScale(data.length - 1).toFixed(1)},${h} Z`
+
+  const color = positive ? '#26A69A' : '#EF5350'
+  const fillColor = positive ? 'rgba(38,166,154,0.15)' : 'rgba(239,83,80,0.15)'
+
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ flexShrink: 0, display: 'block' }}>
+      <path d={fillD} fill={fillColor} />
+      <polyline
+        points={linePts}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
 }
 
-const DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'GOOGL', 'MSFT', 'AMZN', 'META', 'NVDA', 'BTC-USD', 'ETH-USD', 'SPY']
+// ─── Add Symbol Form ─────────────────────────────────────────────────────────
 
-const INITIAL_WATCHLIST: WatchItem[] = [
-  { symbol: 'AAPL', name: 'Apple Inc.', price: 189.84, change: 2.15, changePct: 1.14 },
-  { symbol: 'TSLA', name: 'Tesla Inc.', price: 248.61, change: -8.43, changePct: -3.28 },
-  { symbol: 'GOOGL', name: 'Alphabet', price: 175.98, change: 3.41, changePct: 1.98 },
-  { symbol: 'MSFT', name: 'Microsoft', price: 418.52, change: -1.23, changePct: -0.29 },
-  { symbol: 'AMZN', name: 'Amazon', price: 204.39, change: 1.87, changePct: 0.92 },
-  { symbol: 'META', name: 'Meta Platforms', price: 524.77, change: -4.32, changePct: -0.82 },
-  { symbol: 'NVDA', name: 'NVIDIA Corp.', price: 875.39, change: 22.14, changePct: 2.59 },
-  { symbol: 'BTC', name: 'Bitcoin', price: 67420.50, change: 1243.80, changePct: 1.88 },
-  { symbol: 'ETH', name: 'Ethereum', price: 3542.30, change: -87.40, changePct: -2.41 },
-  { symbol: 'SPY', name: 'S&P 500 ETF', price: 512.47, change: 3.21, changePct: 0.63 },
-]
-
-function simulatePriceChange(item: WatchItem): WatchItem {
-  const delta = item.price * (Math.random() - 0.5) * 0.002
-  const newPrice = Math.max(item.price + delta, 0.01)
-  const newChange = item.change + delta * 0.5
-  const newChangePct = item.changePct + (Math.random() - 0.5) * 0.05
-  return { ...item, price: newPrice, change: newChange, changePct: newChangePct }
+interface AddFormProps {
+  onAdd: (sym: string) => Promise<{ success: boolean; error?: string }>
+  onClose: () => void
 }
+
+function AddSymbolForm({ onAdd, onClose }: AddFormProps) {
+  const [value, setValue] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  const handleAdd = async () => {
+    const sym = value.trim().toUpperCase()
+    if (!sym) return
+    setAdding(true)
+    setError(null)
+    const result = await onAdd(sym)
+    if (result.success) {
+      onClose()
+    } else {
+      setError(result.error ?? 'Failed to add symbol')
+      setAdding(false)
+    }
+  }
+
+  return (
+    <div style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid #2A2E39' }}>
+      <div style={{ display: 'flex', gap: '0.25rem' }}>
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Symbol (e.g. AAPL)"
+          value={value}
+          onChange={(e) => setValue(e.target.value.toUpperCase())}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleAdd()
+            if (e.key === 'Escape') onClose()
+          }}
+          style={{
+            flex: 1,
+            padding: '0.28rem 0.5rem',
+            fontSize: '0.7rem',
+            borderRadius: 4,
+            background: '#131722',
+            border: '1px solid #2962FF',
+            color: '#D1D4DC',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={handleAdd}
+          disabled={adding || !value.trim()}
+          style={{
+            padding: '0.28rem 0.55rem',
+            fontSize: '0.7rem',
+            borderRadius: 4,
+            fontWeight: 600,
+            border: 'none',
+            cursor: adding || !value.trim() ? 'not-allowed' : 'pointer',
+            opacity: adding || !value.trim() ? 0.5 : 1,
+            background: '#2962FF',
+            color: '#fff',
+            transition: 'opacity 0.15s',
+          }}
+        >
+          {adding ? '...' : 'Add'}
+        </button>
+      </div>
+      {error && (
+        <p style={{ fontSize: 9, color: '#EF5350', margin: '0.2rem 0 0', paddingLeft: 2 }}>
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Single Watchlist Row ─────────────────────────────────────────────────────
+
+interface RowProps {
+  item: WatchItem
+  flash: 'up' | 'down' | null
+  isDragging: boolean
+  dragHandleProps: DraggableProvidedDragHandleProps | null
+  onRemove: (symbol: string) => void
+}
+
+function WatchRow({ item, flash, isDragging, dragHandleProps, onRemove }: RowProps) {
+  const isPositive = item.changePct >= 0
+  const priceColor = isPositive ? '#26A69A' : '#EF5350'
+
+  const bg = isDragging
+    ? '#2A2E39'
+    : flash === 'up'
+    ? 'rgba(38,166,154,0.13)'
+    : flash === 'down'
+    ? 'rgba(239,83,80,0.13)'
+    : 'transparent'
+
+  const formattedPrice =
+    item.price === 0
+      ? '—'
+      : item.price >= 1000
+      ? item.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
+      : item.price.toFixed(2)
+
+  const formattedChange =
+    item.change === 0 && item.price === 0
+      ? ''
+      : `${isPositive ? '+' : ''}${item.change.toFixed(2)}`
+
+  const formattedChangePct =
+    item.changePct === 0 && item.price === 0
+      ? '—'
+      : `${isPositive ? '+' : ''}${item.changePct.toFixed(2)}%`
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0.42rem 0.5rem 0.42rem 0.4rem',
+        borderBottom: '1px solid #2A2E39',
+        background: bg,
+        transition: isDragging ? 'none' : 'background 0.35s ease',
+        gap: 3,
+        position: 'relative',
+      }}
+      className="watchlist-row"
+    >
+      {/* Drag handle */}
+      <div
+        {...(dragHandleProps ?? {})}
+        style={{
+          color: '#1E222D',
+          cursor: 'grab',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+        onMouseEnter={(e) => {
+          ;(e.currentTarget as HTMLElement).style.color = '#787B86'
+        }}
+        onMouseLeave={(e) => {
+          ;(e.currentTarget as HTMLElement).style.color = '#1E222D'
+        }}
+      >
+        <GripVertical size={10} />
+      </div>
+
+      {/* Symbol + name */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#D1D4DC',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {item.symbol}
+          </span>
+          {isPositive ? (
+            <TrendingUp size={9} style={{ color: '#26A69A', flexShrink: 0 }} />
+          ) : (
+            <TrendingDown size={9} style={{ color: '#EF5350', flexShrink: 0 }} />
+          )}
+          {item.stale && (
+            <span
+              title="Data may be stale"
+              style={{ fontSize: 7, color: '#787B86', lineHeight: 1 }}
+            >
+              ●
+            </span>
+          )}
+        </div>
+        <p
+          style={{
+            fontSize: 9,
+            color: '#787B86',
+            margin: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: 64,
+          }}
+        >
+          {item.name}
+        </p>
+      </div>
+
+      {/* Sparkline */}
+      {item.sparkline && item.sparkline.length > 1 && (
+        <div style={{ marginLeft: 2, marginRight: 2 }}>
+          <Sparkline data={item.sparkline} positive={isPositive} />
+        </div>
+      )}
+
+      {/* Price block */}
+      <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 42 }}>
+        <p
+          style={{
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+            color: '#D1D4DC',
+            margin: 0,
+            lineHeight: 1.3,
+          }}
+        >
+          {formattedPrice}
+        </p>
+        <p
+          style={{
+            fontSize: 9,
+            fontWeight: 500,
+            fontVariantNumeric: 'tabular-nums',
+            color: priceColor,
+            margin: 0,
+            lineHeight: 1.3,
+          }}
+        >
+          {formattedChangePct}
+        </p>
+        {formattedChange && (
+          <p
+            style={{
+              fontSize: 9,
+              fontVariantNumeric: 'tabular-nums',
+              color: '#787B86',
+              margin: 0,
+              lineHeight: 1.2,
+            }}
+          >
+            {formattedChange}
+          </p>
+        )}
+      </div>
+
+      {/* Remove button — revealed on row hover via CSS */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove(item.symbol)
+        }}
+        title={`Remove ${item.symbol}`}
+        style={{
+          marginLeft: 2,
+          padding: '0.125rem',
+          borderRadius: 3,
+          border: 'none',
+          cursor: 'pointer',
+          background: 'transparent',
+          color: '#787B86',
+          opacity: 0,
+          transition: 'opacity 0.15s, color 0.15s',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+        className="watchlist-remove-btn"
+        onMouseEnter={(e) => {
+          ;(e.currentTarget as HTMLElement).style.color = '#EF5350'
+        }}
+        onMouseLeave={(e) => {
+          ;(e.currentTarget as HTMLElement).style.color = '#787B86'
+        }}
+      >
+        <X size={9} />
+      </button>
+    </div>
+  )
+}
+
+// ─── Main Watchlist Component ────────────────────────────────────────────────
 
 interface WatchlistProps {
   collapsed: boolean
@@ -39,220 +342,416 @@ interface WatchlistProps {
 }
 
 export function Watchlist({ collapsed, onToggle }: WatchlistProps) {
-  const [items, setItems] = useState<WatchItem[]>(INITIAL_WATCHLIST)
+  const { items, loading, refreshing, flashMap, addSymbol, removeSymbol, reorder, refresh } =
+    useWatchlist()
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
-  const [addSymbol, setAddSymbol] = useState('')
-  const [flashMap, setFlashMap] = useState<Record<string, 'up' | 'down' | null>>({})
 
-  // Fetch real prices from Yahoo Finance on mount
-  useEffect(() => {
-    const fetchRealPrices = async () => {
-      try {
-        const results = await Promise.all(
-          DEFAULT_SYMBOLS.map(async (sym) => {
-            const res = await fetch(`/api/stocks/${sym}`)
-            if (!res.ok) return null
-            const data = await res.json()
-            return {
-              symbol: sym.replace('-USD', ''),
-              name: data.shortName ?? sym,
-              price: data.regularMarketPrice ?? 0,
-              change: data.regularMarketChange ?? 0,
-              changePct: data.regularMarketChangePercent ?? 0,
-            } as WatchItem
-          })
-        )
-        const valid = results.filter(Boolean) as WatchItem[]
-        if (valid.length > 0) setItems(valid)
-      } catch {
-        // keep initial fallback data
-      }
-    }
-    fetchRealPrices()
-  }, [])
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return
+      reorder(result.source.index, result.destination.index)
+    },
+    [reorder]
+  )
 
-  // Simulate live price updates every 3s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setItems(prev => {
-        const next = prev.map(item => {
-          const updated = simulatePriceChange(item)
-          const direction = updated.price > item.price ? 'up' : 'down'
-          setFlashMap(f => ({ ...f, [item.symbol]: direction }))
-          setTimeout(() => setFlashMap(f => ({ ...f, [item.symbol]: null })), 600)
-          return updated
-        })
-        return next
-      })
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const filtered = search
-    ? items.filter(i => i.symbol.toLowerCase().includes(search.toLowerCase()) || i.name.toLowerCase().includes(search.toLowerCase()))
+  const displayed = search
+    ? items.filter(
+        (i) =>
+          i.symbol.toLowerCase().includes(search.toLowerCase()) ||
+          i.name.toLowerCase().includes(search.toLowerCase())
+      )
     : items
 
-  const addStock = useCallback(() => {
-    const sym = addSymbol.trim().toUpperCase()
-    if (!sym || items.find(i => i.symbol === sym)) return
-    const newItem: WatchItem = {
-      symbol: sym,
-      name: sym,
-      price: 100 + Math.random() * 400,
-      change: (Math.random() - 0.5) * 10,
-      changePct: (Math.random() - 0.5) * 5,
-    }
-    setItems(prev => [...prev, newItem])
-    setAddSymbol('')
-    setShowAdd(false)
-  }, [addSymbol, items])
-
-  const removeStock = useCallback((symbol: string) => {
-    setItems(prev => prev.filter(i => i.symbol !== symbol))
-  }, [])
-
+  // ── Collapsed sidebar ────────────────────────────────────────────────────
   if (collapsed) {
     return (
       <div
-        className="flex flex-col items-center py-4 gap-3 cursor-pointer"
-        style={{ width: 40, background: '#1E222D', borderRight: '1px solid #2A2E39' }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: '0.75rem',
+          paddingBottom: '0.75rem',
+          gap: '0.6rem',
+          width: 36,
+          height: '100%',
+          background: '#1E222D',
+          borderRight: '1px solid #2A2E39',
+          flexShrink: 0,
+        }}
       >
         <button
           onClick={onToggle}
-          className="p-1 rounded hover:bg-[#2A2E39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
           title="Expand watchlist"
+          style={{
+            padding: '0.2rem',
+            borderRadius: 4,
+            border: 'none',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: '#787B86',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          onMouseEnter={(e) => {
+            ;(e.currentTarget as HTMLElement).style.color = '#D1D4DC'
+          }}
+          onMouseLeave={(e) => {
+            ;(e.currentTarget as HTMLElement).style.color = '#787B86'
+          }}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={14} />
         </button>
-        {filtered.slice(0, 8).map(item => (
-          <div key={item.symbol} className="text-center" title={`${item.symbol}: $${item.price.toFixed(2)}`}>
-            <p className="text-[9px] font-bold text-[#D1D4DC]" style={{ writingMode: 'vertical-lr', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
-              {item.symbol}
-            </p>
-          </div>
-        ))}
+        {items.slice(0, 12).map((item) => {
+          const isPositive = item.changePct >= 0
+          return (
+            <div
+              key={item.symbol}
+              title={`${item.symbol}  $${item.price > 0 ? item.price.toFixed(2) : '—'}  (${isPositive ? '+' : ''}${item.changePct.toFixed(2)}%)`}
+            >
+              <p
+                style={{
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: isPositive ? '#26A69A' : '#EF5350',
+                  writingMode: 'vertical-lr',
+                  textOrientation: 'mixed',
+                  transform: 'rotate(180deg)',
+                  margin: 0,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {item.symbol}
+              </p>
+            </div>
+          )
+        })}
       </div>
     )
   }
 
+  // ── Expanded sidebar ─────────────────────────────────────────────────────
   return (
-    <div
-      className="flex flex-col h-full"
-      style={{ width: 240, background: '#1E222D', borderRight: '1px solid #2A2E39', flexShrink: 0 }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3" style={{ borderBottom: '1px solid #2A2E39' }}>
-        <span className="text-xs font-semibold tracking-wider text-[#787B86] uppercase">Watchlist</span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowAdd(v => !v)}
-            className="p-1 rounded hover:bg-[#2A2E39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
-            title="Add symbol"
-          >
-            <Plus size={14} />
-          </button>
-          <button
-            onClick={onToggle}
-            className="p-1 rounded hover:bg-[#2A2E39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
-            title="Collapse watchlist"
-          >
-            <ChevronLeft size={14} />
-          </button>
-        </div>
-      </div>
+    <>
+      <style>{`
+        .watchlist-row:hover .watchlist-remove-btn { opacity: 1 !important; }
+        @keyframes wl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes wl-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 0.7; } }
+        .wl-skeleton { animation: wl-pulse 1.5s ease-in-out infinite; }
+      `}</style>
 
-      {/* Search */}
-      <div className="px-2 py-2" style={{ borderBottom: '1px solid #2A2E39' }}>
-        <div className="relative">
-          <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#787B86]" />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-6 pr-2 py-1.5 text-xs rounded"
-            style={{ background: '#131722', border: '1px solid #2A2E39', color: '#D1D4DC', outline: 'none' }}
-          />
-        </div>
-      </div>
-
-      {/* Add input */}
-      {showAdd && (
-        <div className="px-2 py-2" style={{ borderBottom: '1px solid #2A2E39' }}>
-          <div className="flex gap-1">
-            <input
-              type="text"
-              placeholder="Symbol (e.g. AAPL)"
-              value={addSymbol}
-              onChange={e => setAddSymbol(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addStock()}
-              autoFocus
-              className="flex-1 px-2 py-1 text-xs rounded"
-              style={{ background: '#131722', border: '1px solid #2962FF', color: '#D1D4DC', outline: 'none' }}
-            />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          width: 240,
+          background: '#1E222D',
+          borderRight: '1px solid #2A2E39',
+          flexShrink: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 0.5rem',
+            height: 36,
+            borderBottom: '1px solid #2A2E39',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.6rem',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: '#787B86',
+            }}
+          >
+            Watchlist
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <button
-              onClick={addStock}
-              className="px-2 py-1 text-xs rounded font-medium"
-              style={{ background: '#2962FF', color: '#fff' }}
+              onClick={refresh}
+              disabled={refreshing}
+              title="Refresh prices"
+              style={{
+                padding: '0.2rem',
+                borderRadius: 4,
+                border: 'none',
+                cursor: refreshing ? 'default' : 'pointer',
+                background: 'transparent',
+                color: '#787B86',
+                display: 'flex',
+                alignItems: 'center',
+                opacity: refreshing ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!refreshing) (e.currentTarget as HTMLElement).style.color = '#D1D4DC'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLElement).style.color = '#787B86'
+              }}
             >
-              Add
+              <RefreshCw
+                size={11}
+                style={{
+                  animation: refreshing ? 'wl-spin 0.8s linear infinite' : 'none',
+                }}
+              />
+            </button>
+            <button
+              onClick={() => setShowAdd((v) => !v)}
+              title="Add symbol"
+              style={{
+                padding: '0.2rem',
+                borderRadius: 4,
+                border: 'none',
+                cursor: 'pointer',
+                background: 'transparent',
+                color: showAdd ? '#2962FF' : '#787B86',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLElement).style.color = '#D1D4DC'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLElement).style.color = showAdd ? '#2962FF' : '#787B86'
+              }}
+            >
+              <Plus size={12} />
+            </button>
+            <button
+              onClick={onToggle}
+              title="Collapse watchlist"
+              style={{
+                padding: '0.2rem',
+                borderRadius: 4,
+                border: 'none',
+                cursor: 'pointer',
+                background: 'transparent',
+                color: '#787B86',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLElement).style.color = '#D1D4DC'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLElement).style.color = '#787B86'
+              }}
+            >
+              <ChevronLeft size={12} />
             </button>
           </div>
         </div>
-      )}
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
-        {filtered.map(item => {
-          const isPositive = item.changePct >= 0
-          const flash = flashMap[item.symbol]
-          return (
-            <div
-              key={item.symbol}
-              className="group flex items-center justify-between px-3 py-2 cursor-pointer transition-colors"
+        {/* Search bar */}
+        <div
+          style={{
+            padding: '0.35rem 0.5rem',
+            borderBottom: '1px solid #2A2E39',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ position: 'relative' }}>
+            <Search
+              size={10}
               style={{
-                borderBottom: '1px solid #2A2E39',
-                background: flash === 'up' ? 'rgba(38,166,154,0.12)' : flash === 'down' ? 'rgba(239,83,80,0.12)' : 'transparent',
-                transition: 'background 0.3s ease',
+                position: 'absolute',
+                left: 7,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#787B86',
+                pointerEvents: 'none',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#131722')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-bold" style={{ color: '#D1D4DC' }}>{item.symbol}</span>
-                  {isPositive
-                    ? <TrendingUp size={9} style={{ color: '#26a69a' }} />
-                    : <TrendingDown size={9} style={{ color: '#ef5350' }} />
-                  }
-                </div>
-                <p className="text-[10px] truncate" style={{ color: '#787B86' }}>{item.name}</p>
-              </div>
-              <div className="text-right ml-2 flex-shrink-0">
-                <p className="text-xs font-medium tabular-nums" style={{ color: '#D1D4DC' }}>
-                  {item.price >= 1000 ? item.price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : item.price.toFixed(2)}
-                </p>
-                <p className="text-[10px] font-medium tabular-nums" style={{ color: isPositive ? '#26a69a' : '#ef5350' }}>
-                  {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
-                </p>
-              </div>
-              <button
-                onClick={e => { e.stopPropagation(); removeStock(item.symbol) }}
-                className="ml-1 opacity-0 group-hover:opacity-100 p-0.5 rounded transition-opacity"
-                style={{ color: '#787B86' }}
+            />
+            <input
+              type="text"
+              placeholder="Search symbols..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: '100%',
+                paddingLeft: '1.35rem',
+                paddingRight: '0.4rem',
+                paddingTop: '0.28rem',
+                paddingBottom: '0.28rem',
+                fontSize: '0.68rem',
+                borderRadius: 4,
+                background: '#131722',
+                border: '1px solid #2A2E39',
+                color: '#D1D4DC',
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.15s',
+              }}
+              onFocus={(e) => {
+                ;(e.currentTarget as HTMLElement).style.borderColor = '#2962FF'
+              }}
+              onBlur={(e) => {
+                ;(e.currentTarget as HTMLElement).style.borderColor = '#2A2E39'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Add symbol form */}
+        {showAdd && (
+          <AddSymbolForm onAdd={addSymbol} onClose={() => setShowAdd(false)} />
+        )}
+
+        {/* Column labels */}
+        {!loading && items.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0.15rem 0.5rem 0.15rem 1.2rem',
+              borderBottom: '1px solid #2A2E39',
+              flexShrink: 0,
+              gap: 3,
+            }}
+          >
+            <span style={{ flex: 1, fontSize: 8, color: '#4A4E5A', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Symbol
+            </span>
+            <span style={{ fontSize: 8, color: '#4A4E5A', marginRight: 60, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Chart
+            </span>
+            <span style={{ fontSize: 8, color: '#4A4E5A', textAlign: 'right', minWidth: 42, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Price
+            </span>
+          </div>
+        )}
+
+        {/* Loading skeletons */}
+        {loading && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0.45rem 0.6rem',
+                  borderBottom: '1px solid #2A2E39',
+                  gap: 8,
+                  opacity: 1 - i * 0.1,
+                }}
               >
-                <X size={10} />
-              </button>
-            </div>
-          )
-        })}
-        {filtered.length === 0 && (
-          <div className="px-3 py-6 text-center text-[10px]" style={{ color: '#787B86' }}>
-            No symbols found
+                <div className="wl-skeleton" style={{ width: 8, height: 10, borderRadius: 2, background: '#2A2E39' }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div className="wl-skeleton" style={{ width: '45%', height: 8, borderRadius: 3, background: '#2A2E39' }} />
+                  <div className="wl-skeleton" style={{ width: '65%', height: 7, borderRadius: 3, background: '#2A2E39', opacity: 0.6 }} />
+                </div>
+                <div className="wl-skeleton" style={{ width: 52, height: 18, borderRadius: 3, background: '#2A2E39' }} />
+                <div className="wl-skeleton" style={{ width: 36, height: 28, borderRadius: 3, background: '#2A2E39' }} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Drag-and-drop list */}
+        {!loading && (
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="watchlist">
+                {(droppableProvided) => (
+                  <div
+                    ref={droppableProvided.innerRef}
+                    {...droppableProvided.droppableProps}
+                  >
+                    {displayed.map((item, index) => (
+                      <Draggable
+                        key={item.symbol}
+                        draggableId={item.symbol}
+                        index={index}
+                      >
+                        {(draggableProvided, snapshot) => (
+                          <div
+                            ref={draggableProvided.innerRef}
+                            {...draggableProvided.draggableProps}
+                            style={draggableProvided.draggableProps.style}
+                          >
+                            <WatchRow
+                              item={item}
+                              flash={flashMap[item.symbol] ?? null}
+                              isDragging={snapshot.isDragging}
+                              dragHandleProps={draggableProvided.dragHandleProps}
+                              onRemove={removeSymbol}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {droppableProvided.placeholder}
+                    {displayed.length === 0 && (
+                      <div
+                        style={{
+                          padding: '2rem 1rem',
+                          textAlign: 'center',
+                          fontSize: 11,
+                          color: '#787B86',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {search ? (
+                          <>No symbols match &quot;{search}&quot;</>
+                        ) : (
+                          <>
+                            Your watchlist is empty.
+                            <br />
+                            <button
+                              onClick={() => setShowAdd(true)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#2962FF',
+                                cursor: 'pointer',
+                                fontSize: 11,
+                                marginTop: 4,
+                              }}
+                            >
+                              + Add a symbol
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </div>
+        )}
+
+        {/* Footer */}
+        {!loading && items.length > 0 && (
+          <div
+            style={{
+              padding: '0.3rem 0.6rem',
+              borderTop: '1px solid #2A2E39',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontSize: 9, color: '#4A4E5A' }}>
+              {items.length} symbol{items.length !== 1 ? 's' : ''}
+            </span>
+            <span style={{ fontSize: 9, color: '#4A4E5A' }}>auto-refresh 30s</span>
           </div>
         )}
       </div>
-    </div>
+    </>
   )
 }

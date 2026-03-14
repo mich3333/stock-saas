@@ -29,9 +29,9 @@ function getSentiment(title: string): 'positive' | 'negative' | 'neutral' {
 }
 
 const sentimentConfig = {
-  positive: { icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/20', label: 'Positive' },
-  negative: { icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20', label: 'Negative' },
-  neutral: { icon: Minus, color: 'text-gray-400', bg: 'bg-gray-50 dark:bg-gray-700/50', label: 'Neutral' },
+  positive: { icon: TrendingUp, color: 'var(--green)', bg: 'rgba(38,166,154,0.12)', label: 'Positive' },
+  negative: { icon: TrendingDown, color: 'var(--red)', bg: 'rgba(239,83,80,0.12)', label: 'Negative' },
+  neutral:  { icon: Minus,        color: 'var(--text-secondary)', bg: 'rgba(120,123,134,0.12)', label: 'Neutral' },
 }
 
 export function NewsFeed({ symbol }: NewsFeedProps) {
@@ -60,19 +60,37 @@ export function NewsFeed({ symbol }: NewsFeedProps) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: 'var(--panel)',
+        borderRadius: 16,
+        padding: '1.5rem',
+        border: '1px solid var(--border)',
+      }}
+    >
       <div className="flex items-center gap-2 mb-4">
-        <Newspaper size={20} className="text-blue-500" />
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">News — {symbol}</h2>
+        <Newspaper size={20} style={{ color: 'var(--accent)' }} />
+        <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>
+          News — {symbol}
+        </h2>
       </div>
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
+            <div
+              key={i}
+              className="h-16 rounded-xl animate-pulse"
+              style={{ background: 'var(--border)' }}
+            />
           ))}
         </div>
       ) : news.length === 0 ? (
-        <p className="text-gray-500 text-sm text-center py-8">No recent news</p>
+        <p className="text-sm text-center py-8" style={{ color: 'var(--text-secondary)' }}>
+          No recent news
+        </p>
       ) : (
         <div className="space-y-3">
           <AnimatePresence>
@@ -81,24 +99,48 @@ export function NewsFeed({ symbol }: NewsFeedProps) {
               const config = sentimentConfig[sentiment]
               const SentimentIcon = config.icon
               return (
-                <motion.a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
-                  <div className={`flex-shrink-0 p-1.5 rounded-lg ${config.bg}`}>
-                    <SentimentIcon size={14} className={config.color} />
+                <motion.a
+                  key={i}
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-start gap-3 p-3 rounded-xl transition-colors group"
+                  style={{ background: 'transparent' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div
+                    className="flex-shrink-0 p-1.5 rounded-lg"
+                    style={{ background: config.bg }}
+                  >
+                    <SentimentIcon size={14} style={{ color: config.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 transition-colors">{item.title}</p>
+                    <p
+                      className="text-sm font-medium line-clamp-2"
+                      style={{ color: 'var(--foreground)' }}
+                    >
+                      {item.title}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-400">{item.publisher}</span>
-                      <span className="text-gray-300">·</span>
-                      <Clock size={10} className="text-gray-400" />
-                      <span className="text-xs text-gray-400">{timeAgo(item.providerPublishTime)}</span>
-                      <span className="text-gray-300">·</span>
-                      <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {item.publisher}
+                      </span>
+                      <span style={{ color: 'var(--border)' }}>·</span>
+                      <Clock size={10} style={{ color: 'var(--text-secondary)' }} />
+                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {timeAgo(item.providerPublishTime)}
+                      </span>
+                      <span style={{ color: 'var(--border)' }}>·</span>
+                      <span className="text-xs font-medium" style={{ color: config.color }}>
+                        {config.label}
+                      </span>
                     </div>
                   </div>
-                  <ExternalLink size={14} className="text-gray-400 flex-shrink-0 mt-1" />
+                  <ExternalLink size={14} className="flex-shrink-0 mt-1" style={{ color: 'var(--text-secondary)' }} />
                 </motion.a>
               )
             })}

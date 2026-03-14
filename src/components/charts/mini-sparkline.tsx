@@ -1,45 +1,40 @@
+'use client'
+import { LineChart, Line, ResponsiveContainer } from 'recharts'
+
 interface MiniSparklineProps {
-  data: number[]
-  isPositive: boolean
-  width?: number
+  data: number[] | { close: number }[]
+  positive?: boolean
   height?: number
 }
 
-export function MiniSparkline({ data, isPositive, width = 80, height = 40 }: MiniSparklineProps) {
-  if (!data || data.length < 2) return null
+function toValues(data: number[] | { close: number }[]): number[] {
+  if (data.length === 0) return []
+  if (typeof data[0] === 'number') return data as number[]
+  return (data as { close: number }[]).map((d) => d.close)
+}
 
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const range = max - min || 1
+export function MiniSparkline({ data, positive = true, height = 40 }: MiniSparklineProps) {
+  const values = toValues(data)
+  if (values.length < 2) return null
 
-  const pad = 2
-  const w = width - pad * 2
-  const h = height - pad * 2
+  const color = positive ? '#26a69a' : '#ef5350'
 
-  const points = data.map((v, i) => ({
-    x: pad + (i / (data.length - 1)) * w,
-    y: pad + h - ((v - min) / range) * h,
-  }))
-
-  const pathD = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-    .join(' ')
-
-  const fillD = `${pathD} L ${points[points.length - 1].x.toFixed(1)} ${(pad + h).toFixed(1)} L ${pad} ${(pad + h).toFixed(1)} Z`
-
-  const color = isPositive ? '#22c55e' : '#ef4444'
-  const gradId = `sg-${isPositive ? 'pos' : 'neg'}`
+  const chartData = values.map((v, i) => ({ v, i }))
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={fillD} fill={`url(#${gradId})`} />
-      <path d={pathD} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{ background: '#131722' }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+          <Line
+            type="monotone"
+            dataKey="v"
+            stroke={color}
+            strokeWidth={1.5}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   )
 }

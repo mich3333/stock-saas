@@ -25,8 +25,7 @@ function MiniChart({ color }: { color: string }) {
 
   return (
     <div
-      className="w-full h-32 relative overflow-hidden rounded-t"
-      style={{ backgroundColor: '#131722' }}
+      className="w-full h-32 relative overflow-hidden rounded-t-3xl bg-[var(--panel-muted)]"
     >
       {/* Grid lines */}
       <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
@@ -37,7 +36,7 @@ function MiniChart({ color }: { color: string }) {
             y1={`${(i + 1) * 20}%`}
             x2="100%"
             y2={`${(i + 1) * 20}%`}
-            stroke="#2A2E39"
+            stroke="var(--border)"
             strokeWidth="1"
           />
         ))}
@@ -48,7 +47,7 @@ function MiniChart({ color }: { color: string }) {
             y1="0"
             x2={`${i * 25}%`}
             y2="100%"
-            stroke="#2A2E39"
+            stroke="var(--border)"
             strokeWidth="1"
           />
         ))}
@@ -97,25 +96,24 @@ export default function IdeaCard({
   return (
     <Link
       href="/community"
-      className="rounded overflow-hidden cursor-pointer group block"
-      style={{ backgroundColor: '#1E222D', border: '1px solid #2A2E39', textDecoration: 'none' }}
+      className="market-soft-card overflow-hidden cursor-pointer group block hover:-translate-y-1"
+      style={{ textDecoration: 'none' }}
     >
       {/* Chart preview */}
       <div className="relative">
         <MiniChart color={chartColor} />
         {/* Symbol badge */}
         <div
-          className="absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-bold"
-          style={{ backgroundColor: '#131722', color: '#D1D4DC', border: '1px solid #2A2E39' }}
+          className="ticker-mono absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-bold bg-[var(--panel-strong)] text-[var(--foreground)] border border-[var(--border)]"
         >
           {symbol}
         </div>
         {/* Direction badge */}
         <div
-          className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-semibold"
+          className="absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold"
           style={{
             backgroundColor: isLong ? 'rgba(38,166,154,0.15)' : 'rgba(239,83,80,0.15)',
-            color: isLong ? '#26A69A' : '#EF5350',
+            color: isLong ? 'var(--green)' : 'var(--red)',
             border: `1px solid ${isLong ? 'rgba(38,166,154,0.3)' : 'rgba(239,83,80,0.3)'}`,
           }}
         >
@@ -124,11 +122,10 @@ export default function IdeaCard({
       </div>
 
       {/* Card body */}
-      <div className="p-3">
+      <div className="p-4">
         {/* Title */}
         <p
-          className="text-sm font-medium mb-3 leading-snug line-clamp-2 group-hover:text-blue-400 transition-colors"
-          style={{ color: '#D1D4DC' }}
+          className="text-sm font-medium mb-3 leading-snug line-clamp-2 group-hover:text-[var(--accent)] transition-colors text-[var(--foreground)]"
         >
           {title}
         </p>
@@ -141,31 +138,31 @@ export default function IdeaCard({
           >
             {authorInitials}
           </div>
-          <span className="text-xs" style={{ color: '#787B86' }}>
+          <span className="text-xs text-[var(--text-secondary)]">
             {author}
           </span>
-          <span className="text-xs ml-auto" style={{ color: '#787B86' }}>
+          <span className="ticker-mono text-xs ml-auto text-[var(--text-secondary)]">
             {timeframe}
           </span>
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-3 pt-2" style={{ borderTop: '1px solid #2A2E39' }}>
+        <div className="flex items-center gap-3 pt-3 border-t border-[var(--border)]">
           <div className="flex items-center gap-1">
-            <ThumbsUp size={12} style={{ color: '#787B86' }} />
-            <span className="text-xs" style={{ color: '#787B86' }}>
+            <ThumbsUp size={12} className="text-[var(--text-secondary)]" />
+            <span className="ticker-mono text-xs text-[var(--text-secondary)]">
               {likes}
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <MessageSquare size={12} style={{ color: '#787B86' }} />
-            <span className="text-xs" style={{ color: '#787B86' }}>
+            <MessageSquare size={12} className="text-[var(--text-secondary)]" />
+            <span className="ticker-mono text-xs text-[var(--text-secondary)]">
               {comments}
             </span>
           </div>
           <div className="flex items-center gap-1 ml-auto">
-            <Eye size={12} style={{ color: '#787B86' }} />
-            <span className="text-xs" style={{ color: '#787B86' }}>
+            <Eye size={12} className="text-[var(--text-secondary)]" />
+            <span className="ticker-mono text-xs text-[var(--text-secondary)]">
               {views}
             </span>
           </div>

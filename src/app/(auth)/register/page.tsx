@@ -27,28 +27,15 @@ type RegisterForm = z.infer<typeof registerSchema>
 const PARTICLES = [
   { id: 0,  x: 74.7, y: 86.3, size: 3.0, duration: 12, delay: 0.0 },
   { id: 1,  x: 95.2, y: 11.1, size: 2.9, duration: 10, delay: 1.2 },
-  { id: 2,  x: 76.0, y: 80.5, size: 4.2, duration: 14, delay: 2.1 },
-  { id: 3,  x: 19.0, y: 74.3, size: 5.9, duration: 11, delay: 0.5 },
-  { id: 4,  x: 8.4,  y: 75.4, size: 5.4, duration: 13, delay: 3.0 },
-  { id: 5,  x: 76.6, y: 91.8, size: 5.0, duration: 9,  delay: 1.8 },
-  { id: 6,  x: 57.8, y: 35.3, size: 5.4, duration: 12, delay: 0.3 },
-  { id: 7,  x: 74.8, y: 97.6, size: 3.3, duration: 10, delay: 2.7 },
-  { id: 8,  x: 96.7, y: 39.4, size: 5.7, duration: 11, delay: 1.5 },
-  { id: 9,  x: 62.8, y: 27.7, size: 4.1, duration: 13, delay: 0.9 },
-  { id: 10, x: 76.8, y: 31.1, size: 4.3, duration: 8,  delay: 3.5 },
-  { id: 11, x: 3.0,  y: 35.0, size: 4.7, duration: 14, delay: 0.7 },
-  { id: 12, x: 12.7, y: 34.0, size: 2.7, duration: 10, delay: 2.3 },
-  { id: 13, x: 47.8, y: 99.4, size: 5.3, duration: 12, delay: 1.1 },
-  { id: 14, x: 52.1, y: 64.7, size: 3.9, duration: 9,  delay: 0.4 },
-  { id: 15, x: 6.8,  y: 2.7,  size: 2.6, duration: 11, delay: 2.8 },
-  { id: 16, x: 22.2, y: 75.9, size: 5.6, duration: 13, delay: 1.6 },
-  { id: 17, x: 97.3, y: 66.7, size: 5.0, duration: 8,  delay: 3.2 },
-  { id: 18, x: 19.2, y: 34.8, size: 2.4, duration: 10, delay: 0.6 },
-  { id: 19, x: 21.0, y: 55.9, size: 5.0, duration: 12, delay: 1.9 },
+  { id: 2,  x: 19.0, y: 74.3, size: 5.9, duration: 11, delay: 0.5 },
+  { id: 3,  x: 57.8, y: 35.3, size: 5.4, duration: 12, delay: 0.3 },
+  { id: 4,  x: 96.7, y: 39.4, size: 5.7, duration: 11, delay: 1.5 },
+  { id: 5,  x: 3.0,  y: 35.0, size: 4.7, duration: 14, delay: 0.7 },
+  { id: 6,  x: 47.8, y: 99.4, size: 5.3, duration: 12, delay: 1.1 },
+  { id: 7,  x: 22.2, y: 75.9, size: 5.6, duration: 13, delay: 1.6 },
 ]
 
-const inputClass =
-  'w-full px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-500'
+const inputClass = 'auth-input'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -68,7 +55,7 @@ export default function RegisterPage() {
     setError(null)
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
     if (authError) {
       setError(authError.message)
@@ -95,7 +82,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden bg-gray-950">
+    <div className="auth-shell min-h-screen flex items-center justify-center px-4 py-12 relative">
       {/* Animated gradient background */}
       <motion.div
         animate={{
@@ -113,7 +100,7 @@ export default function RegisterPage() {
       {PARTICLES.map((p) => (
         <motion.div
           key={p.id}
-          className="absolute rounded-full bg-blue-500/20"
+          className="absolute rounded-full bg-[var(--glow)]"
           style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size }}
           animate={{ y: [0, -30, 0], opacity: [0.3, 0.8, 0.3] }}
           transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
@@ -133,22 +120,27 @@ export default function RegisterPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 bg-white/5 backdrop-blur-xl rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/10"
+        className="auth-card relative z-10 rounded-[2rem] p-8 w-full max-w-md"
       >
         <Link href="/" className="flex items-center gap-2 mb-8">
-          <TrendingUp className="text-blue-400" size={24} />
-          <span className="font-bold text-xl text-white">StockFlow</span>
+          <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-[var(--accent)] shadow-[0_14px_32px_var(--glow)]">
+            <TrendingUp className="text-white" size={20} />
+          </div>
+          <div>
+            <div className="section-kicker text-[11px]">Start investing smarter</div>
+            <span className="font-bold text-xl text-[var(--foreground)]">StockFlow</span>
+          </div>
         </Link>
 
-        <h1 className="text-2xl font-bold mb-2 text-white">Create your account</h1>
-        <p className="text-gray-400 mb-6">Start tracking stocks for free</p>
+        <h1 className="text-2xl font-bold mb-2 text-[var(--foreground)]">Create your account</h1>
+        <p className="text-[var(--text-secondary)] mb-6">Start tracking stocks for free</p>
 
         {/* OAuth buttons */}
         <div className="space-y-3 mb-6">
           <button
             onClick={() => signInWithOAuth('google')}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="auth-social-btn disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -162,9 +154,9 @@ export default function RegisterPage() {
           <button
             onClick={() => signInWithOAuth('github')}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="auth-social-btn disabled:opacity-50"
           >
-            <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
             </svg>
             Continue with GitHub
@@ -172,16 +164,16 @@ export default function RegisterPage() {
         </div>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs text-gray-500">or continue with email</span>
-          <div className="flex-1 h-px bg-white/10" />
+          <div className="flex-1 h-px bg-[var(--border)]" />
+          <span className="ticker-mono text-xs text-[var(--text-secondary)]">or continue with email</span>
+          <div className="flex-1 h-px bg-[var(--border)]" />
         </div>
 
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-3 mb-4 text-sm"
+            className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-2xl p-3 mb-4 text-sm"
           >
             {error}
           </motion.div>
@@ -195,7 +187,7 @@ export default function RegisterPage() {
             { label: 'Confirm Password', field: 'confirmPassword' as const, type: 'password', placeholder: '••••••••', error: errors.confirmPassword },
           ].map(({ label, field, type, placeholder, error: fieldError }) => (
             <div key={field}>
-              <label className="block text-sm font-medium text-gray-300 mb-1">{label}</label>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">{label}</label>
               <input {...register(field)} type={type} className={inputClass} placeholder={placeholder} />
               {fieldError && (
                 <motion.p
@@ -209,14 +201,14 @@ export default function RegisterPage() {
             </div>
           ))}
 
-          <Button type="submit" className="w-full" loading={loading} disabled={loading}>
+          <Button type="submit" className="w-full rounded-2xl" loading={loading} disabled={loading}>
             {loading ? 'Creating account...' : 'Create Account'}
           </Button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-[var(--text-secondary)] mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+          <Link href="/login" className="text-[var(--accent)] hover:opacity-80 font-medium transition-colors">
             Sign in
           </Link>
         </p>

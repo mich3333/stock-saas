@@ -3,12 +3,19 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { Database } from '@/types/database'
 import { canAddToWatchlist, SubscriptionTier } from '@/lib/tier-limits'
+import { checkRateLimit } from '@/lib/rate-limiter'
+import { createLogger } from '@/lib/logger'
+import { getSupabaseEnv } from '@/lib/env'
+import { sanitizeSymbol, validateSymbol } from '@/lib/security'
+
+const log = createLogger('api/watchlist')
 
 async function makeSupabase() {
+  const { url, anonKey } = getSupabaseEnv()
   const cookieStore = await cookies()
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     { cookies: { getAll() { return cookieStore.getAll() } } }
   )
 }
@@ -19,11 +26,26 @@ async function getUserTier(supabase: Awaited<ReturnType<typeof makeSupabase>>, u
   return row?.tier ?? 'free'
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await makeSupabase()
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1'
+    let supabase: Awaited<ReturnType<typeof makeSupabase>>
+    try {
+      supabase = await makeSupabase()
+    } catch {
+      return NextResponse.json({ data: [] })
+    }
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) return NextResponse.json({ data: [] })
+
+    const tier = await getUserTier(supabase, user.id)
+    const { allowed, retryAfter } = checkRateLimit(ip, tier)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
+    }
 
     let { data, error } = await supabase
       .from('watchlists')
@@ -45,24 +67,36 @@ export async function GET() {
 
     return NextResponse.json({ data, error: error?.message || null })
   } catch (error) {
-    console.error('GET /api/watchlist error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    log.error('GET /api/watchlist error', error)
+    return NextResponse.json({ data: [] })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1'
     const supabase = await makeSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const tier = await getUserTier(supabase, user.id)
+    const { allowed, retryAfter } = checkRateLimit(ip, tier)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
+    }
 
     const body = await request.json()
     const { symbol, watchlist_id } = body
     if (!symbol || !watchlist_id) {
       return NextResponse.json({ error: 'Missing required fields: symbol, watchlist_id' }, { status: 400 })
     }
-
-    const tier = await getUserTier(supabase, user.id)
+    const upperSymbol = sanitizeSymbol(String(symbol))
+    if (!validateSymbol(upperSymbol)) {
+      return NextResponse.json({ error: 'Invalid symbol format' }, { status: 400 })
+    }
 
     const { count } = await supabase
       .from('watchlist_items')
@@ -70,27 +104,40 @@ export async function POST(request: NextRequest) {
       .eq('watchlist_id', watchlist_id)
 
     if (!canAddToWatchlist(tier, count || 0)) {
-      return NextResponse.json({ error: 'Upgrade to Pro to add more stocks' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Upgrade to Pro to add more stocks', upgradeUrl: '/pricing' },
+        { status: 403 }
+      )
     }
 
     const { data, error } = await supabase
       .from('watchlist_items')
-      .insert({ watchlist_id, user_id: user.id, symbol: symbol.toUpperCase() })
+      .insert({ watchlist_id, user_id: user.id, symbol: upperSymbol })
       .select()
       .single()
 
     return NextResponse.json({ data, error: error?.message || null }, { status: error ? 400 : 201 })
   } catch (error) {
-    console.error('POST /api/watchlist error:', error)
+    log.error('POST /api/watchlist error', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1'
     const supabase = await makeSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const tier = await getUserTier(supabase, user.id)
+    const { allowed, retryAfter } = checkRateLimit(ip, tier)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
+    }
 
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'Missing item id' }, { status: 400 })
@@ -103,7 +150,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: !error, error: error?.message || null })
   } catch (error) {
-    console.error('DELETE /api/watchlist error:', error)
+    log.error('DELETE /api/watchlist error', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export function PUT() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, POST, DELETE' } }) }
+export function PATCH() { return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET, POST, DELETE' } }) }

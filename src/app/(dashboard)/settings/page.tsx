@@ -1,14 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { SubscriptionStatus } from '@/components/subscription/subscription-status'
 import { PriceAlerts } from '@/components/alerts/price-alerts'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { TrendingUp, LogOut, Settings, User } from 'lucide-react'
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const router = useRouter()
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
@@ -53,24 +52,25 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="app-shell min-h-screen">
       {/* Navbar */}
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 h-16 flex items-center justify-between sticky top-0 z-40">
+      <nav
+        className="glass-panel px-6 h-16 flex items-center justify-between sticky top-0 z-40 border-b"
+      >
         <div className="flex items-center gap-4">
           <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2">
-            <TrendingUp className="text-blue-500" size={22} />
-            <span className="font-bold text-lg text-gray-900 dark:text-white">StockFlow</span>
+            <TrendingUp className="text-[var(--accent)]" size={22} />
+            <span className="font-bold text-lg text-[var(--foreground)]">StockFlow</span>
           </button>
-          <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
             <span>/</span>
-            <span className="text-gray-700 dark:text-gray-300 font-medium ml-1">Settings</span>
+            <span className="font-medium ml-1 text-[var(--foreground)]">Settings</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <button
             onClick={handleLogout}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+            className="p-2 rounded-full transition-colors text-[var(--text-secondary)] hover:bg-[var(--accent-soft)]"
           >
             <LogOut size={18} />
           </button>
@@ -79,44 +79,103 @@ export default function SettingsPage() {
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-2 mb-6">
-          <Settings size={22} className="text-blue-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+          <Settings size={22} className="text-[var(--accent)]" />
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Settings</h1>
         </div>
 
         {/* Profile section */}
         <section>
-          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+          <h2
+            className="section-kicker text-xs font-semibold uppercase tracking-wider mb-3"
+          >
             Profile
           </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-              <User size={22} className="text-blue-500" />
+          <div
+            className="glass-panel-strong rounded-[1.75rem] p-6"
+          >
+            <div className="flex items-center gap-4 mb-5">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--accent-soft)', border: '1px solid var(--border)' }}
+              >
+                <User size={22} className="text-[var(--accent)]" />
+              </div>
+              <div>
+                {userName && (
+                  <p className="font-semibold text-[var(--foreground)]">{userName}</p>
+                )}
+                <p className="text-sm text-[var(--text-secondary)]">{userEmail ?? '...'}</p>
+              </div>
             </div>
-            <div>
-              {userName && (
-                <p className="font-semibold text-gray-900 dark:text-white">{userName}</p>
-              )}
-              <p className="text-sm text-gray-500 dark:text-gray-400">{userEmail ?? '...'}</p>
+
+            {/* Edit name */}
+            <div className="space-y-3">
+              <div>
+                <label
+                  className="section-kicker block text-xs font-medium mb-1 uppercase tracking-wider"
+                >
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="auth-input text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  onClick={handleUpdateProfile}
+                  loading={saving}
+                  disabled={saving || editName === (userName ?? '')}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+                {saveMessage && (
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: saveMessage === 'Profile updated' ? 'var(--green)' : 'var(--red)' }}
+                  >
+                    {saveMessage}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </section>
 
         {/* Subscription / Billing section */}
         <section>
-          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-            Subscription & Billing
+          <h2
+            className="section-kicker text-xs font-semibold uppercase tracking-wider mb-3"
+          >
+            Subscription &amp; Billing
           </h2>
-          <SubscriptionStatus />
+          <Suspense fallback={<div className="glass-panel-strong rounded-[1.75rem] p-6 animate-pulse h-72" />}>
+            <SubscriptionStatus />
+          </Suspense>
         </section>
 
         {/* Price Alerts section */}
         <section>
-          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+          <h2
+            className="section-kicker text-xs font-semibold uppercase tracking-wider mb-3"
+          >
             Price Alerts
           </h2>
           <PriceAlerts />
         </section>
       </div>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="app-shell min-h-screen" />}>
+      <SettingsPageContent />
+    </Suspense>
   )
 }

@@ -1,7 +1,19 @@
 import type { Metadata } from 'next'
+import { Space_Grotesk, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ToastProvider } from '@/components/ui/toast'
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+})
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-ibm-plex-mono',
+})
 
 export const metadata: Metadata = {
   title: 'StockFlow — Real-Time Stock Market Intelligence',
@@ -15,9 +27,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
-      <body className="antialiased" style={{ backgroundColor: '#131722', color: '#D1D4DC' }}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased transition-colors`}
+        style={{ background: 'var(--background)', color: 'var(--foreground)' }}
+      >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <ToastProvider>
             {children}
           </ToastProvider>

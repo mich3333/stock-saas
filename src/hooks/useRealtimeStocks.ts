@@ -38,7 +38,7 @@ export function useRealtimeStocks(symbols: string[]): UseRealtimeStocksResult {
       retryCountRef.current = 0
     }
 
-    es.onmessage = (event) => {
+    const handleQuote = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data) as RealtimePrice
         setPrices((prev) => ({ ...prev, [data.symbol]: data }))
@@ -46,6 +46,9 @@ export function useRealtimeStocks(symbols: string[]): UseRealtimeStocksResult {
         // ignore parse errors
       }
     }
+
+    // The stream sends named 'quote' events, so use addEventListener (not onmessage)
+    es.addEventListener('quote', handleQuote)
 
     es.onerror = () => {
       setConnected(false)
