@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { SubscriptionStatus } from '@/components/subscription/subscription-status'
 import { PriceAlerts } from '@/components/alerts/price-alerts'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, LogOut, Settings, User } from 'lucide-react'
+import { Settings, User } from 'lucide-react'
 
 function SettingsPageContent() {
   const router = useRouter()
@@ -46,38 +46,8 @@ function SettingsPageContent() {
     setTimeout(() => setSaveMessage(null), 3000)
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
   return (
-    <div className="app-shell min-h-screen">
-      {/* Navbar */}
-      <nav
-        className="glass-panel px-6 h-16 flex items-center justify-between sticky top-0 z-40 border-b"
-      >
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2">
-            <TrendingUp className="text-[var(--accent)]" size={22} />
-            <span className="font-bold text-lg text-[var(--foreground)]">StockFlow</span>
-          </button>
-          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-            <span>/</span>
-            <span className="font-medium ml-1 text-[var(--foreground)]">Settings</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleLogout}
-            className="p-2 rounded-full transition-colors text-[var(--text-secondary)] hover:bg-[var(--accent-soft)]"
-          >
-            <LogOut size={18} />
-          </button>
-        </div>
-      </nav>
-
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-2 mb-6">
           <Settings size={22} className="text-[var(--accent)]" />
           <h1 className="text-2xl font-bold text-[var(--foreground)]">Settings</h1>
@@ -168,7 +138,6 @@ function SettingsPageContent() {
           <PriceAlerts />
         </section>
       </div>
-    </div>
   )
 }
 
