@@ -26,8 +26,20 @@ const nextConfig: NextConfig = {
   // where middleware.js.nft.json is not emitted. Re-enable when deploying to Docker
   // or when upgrading to a Next.js version that fixes this issue.
   serverExternalPackages: ['yahoo-finance2'],
+  // Disable browser sourcemaps in production to reduce bundle/deploy artifact size.
+  // Server-side code sourcemaps are also suppressed via webpack config below.
+  productionBrowserSourceMaps: false,
   typescript: {
     ignoreBuildErrors: false,
+  },
+  webpack(config, { dev }) {
+    if (!dev) {
+      // Use the cheapest sourcemap option for server builds in production.
+      // 'hidden-source-map' keeps error stack traces useful in monitoring tools
+      // without serving the full .map files to browsers.
+      config.devtool = 'hidden-source-map';
+    }
+    return config;
   },
   images: {
     remotePatterns: [
