@@ -1,15 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import {
-  AreaSeries,
-  ColorType,
-  createChart,
-  type IChartApi,
-  type ISeriesApi,
-  type UTCTimestamp,
-} from 'lightweight-charts'
 import { TrendingUp, TrendingDown, ChevronRight, ChevronDown, Plus, Grid3X3, MoreHorizontal } from 'lucide-react'
 import type { ChartPoint } from '@/types'
 
@@ -86,10 +78,6 @@ const MOCK_INDEX_EXTRAS: MarketAsset[] = [
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function toTimestamp(date: string): UTCTimestamp {
-  return Math.floor(new Date(date).getTime() / 1000) as UTCTimestamp
-}
-
 function AssetBadge({ symbol, size = 36 }: { symbol: string; size?: number }) {
   const b = BADGE_MAP[symbol]
   const color = b?.color ?? '#64748b'
@@ -105,76 +93,59 @@ function AssetBadge({ symbol, size = 36 }: { symbol: string; size?: number }) {
   )
 }
 
-// ── inline area chart ─────────────────────────────────────────────────────────
+// ── SVG area chart (clean, TradingView-style) ─────────────────────────────────
 
 function AreaChart({ data, isPositive, height = 260 }: { data: ChartPoint[]; isPositive: boolean; height?: number }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<IChartApi | null>(null)
-  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null)
+  const W = 900
+  const H = height
+  const PAD = 4
 
-  const green = '#16a34a'
-  const red   = '#ef4444'
-  const color = isPositive ? green : red
+  if (data.length < 2) return (
+    <div style={{ height }} className="flex items-center justify-center">
+      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Loading chart…</span>
+    </div>
+  )
 
-  const lineData = data.map(p => ({ time: toTimestamp(p.date), value: p.close }))
+  const closes = data.map(d => d.close)
+  const min = Math.min(...closes)
+  const max = Math.max(...closes)
+  const range = max - min || 1
 
-  const buildChart = useCallback(() => {
-    const container = containerRef.current
-    if (!container || chartRef.current) return
+  const px = (i: number) => PAD + (i / (closes.length - 1)) * (W - PAD * 2)
+  const py = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2)
 
-    const chart = createChart(container, {
-      autoSize: true,
-      height,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'rgba(148,163,184,0.7)',
-        attributionLogo: false,
-      },
-      grid: {
-        vertLines: { color: 'rgba(148,163,184,0.07)' },
-        horzLines: { color: 'rgba(148,163,184,0.07)' },
-      },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: false },
-      crosshair: { mode: 0 },
-      handleScroll: false,
-      handleScale: false,
-    })
+  const pts = closes.map((v, i) => `${px(i)},${py(v)}`).join(' ')
+  const color = isPositive ? '#22c55e' : '#ef4444'
+  const gradId = `grad-${isPositive ? 'g' : 'r'}`
 
-    const series = chart.addSeries(AreaSeries, {
-      lineColor: color,
-      topColor: isPositive ? 'rgba(22,163,74,0.28)' : 'rgba(239,68,68,0.28)',
-      bottomColor: isPositive ? 'rgba(22,163,74,0.01)' : 'rgba(239,68,68,0.01)',
-      lineWidth: 2,
-      crosshairMarkerVisible: false,
-      lastValueVisible: false,
-      priceLineVisible: false,
-    })
+  const polyline = `${px(0)},${py(closes[0])} ${pts} ${px(closes.length - 1)},${H} ${px(0)},${H}`
 
-    series.setData(lineData)
-    chart.timeScale().fitContent()
-
-    chartRef.current = chart
-    seriesRef.current = series
-
-    const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }))
-    ro.observe(container)
-    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; seriesRef.current = null }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    return buildChart()
-  }, [buildChart])
-
-  // update data without recreating chart
-  useEffect(() => {
-    if (seriesRef.current && lineData.length > 0) {
-      seriesRef.current.setData(lineData)
-      chartRef.current?.timeScale().fitContent()
-    }
-  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return <div ref={containerRef} style={{ width: '100%', height }} />
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      style={{ width: '100%', height, display: 'block' }}
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+        </linearGradient>
+      </defs>
+      {/* gradient fill */}
+      <polygon points={polyline} fill={`url(#${gradId})`} />
+      {/* line */}
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  )
 }
 
 // ── small index card ──────────────────────────────────────────────────────────
@@ -270,7 +241,7 @@ export default function MarketsPage() {
     setChartLoading(true)
     setChartHistory([])
 
-    fetch(`/api/stocks/${encodeURIComponent(selectedAsset.symbol)}?history=true`, { signal: ctrl.signal })
+    fetch(`/api/stocks/${encodeURIComponent(selectedAsset.symbol)}?history=true&period=1mo`, { signal: ctrl.signal })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(d => { if (d?.history) setChartHistory(d.history) })
       .catch(() => {})
@@ -344,8 +315,8 @@ export default function MarketsPage() {
               </div>
             </div>
 
-            {/* area chart — inside the card */}
-            <div className="px-1 pb-2">
+            {/* area chart — inside the card, full-width */}
+            <div className="pb-1">
               {chartLoading || chartHistory.length === 0 ? (
                 <div className="h-[260px] animate-pulse mx-2 rounded-xl"
                   style={{ background: 'var(--panel-muted)' }} />
