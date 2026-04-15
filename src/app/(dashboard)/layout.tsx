@@ -2,7 +2,7 @@
 import { useState, useRef, Suspense, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { TrendingUp, BarChart2, PieChart, Search, Users, Settings, Bell, Menu, Grid3X3, LogOut } from 'lucide-react'
+import { TrendingUp, BarChart2, PieChart, Search, Users, Settings, Bell, Menu, Grid3X3, LogOut, Globe } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Watchlist } from '@/components/Watchlist'
 import { NewsFeed } from '@/components/NewsFeed'
@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart2 },
+  { href: '/markets', label: 'Markets', icon: Globe },
   { href: '/portfolio', label: 'Portfolio', icon: PieChart },
   { href: '/heatmap', label: 'Heatmap', icon: Grid3X3 },
   { href: '/screener', label: 'Screener', icon: Search },
