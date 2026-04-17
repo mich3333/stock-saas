@@ -12,6 +12,9 @@ const INDICES = [
   { symbol: 'CL=F', name: 'Crude Oil', category: 'Commodity' },
   { symbol: 'NG=F', name: 'Natural Gas', category: 'Commodity' },
   { symbol: 'BTC-USD', name: 'Bitcoin', category: 'Crypto' },
+  { symbol: 'ETH-USD', name: 'Ethereum', category: 'Crypto' },
+  { symbol: 'DX-Y.NYB', name: 'US Dollar Index', category: 'Macro' },
+  { symbol: '^TNX', name: '10Y Treasury Yield', category: 'Macro' },
 ]
 
 export async function GET(request: NextRequest) {
@@ -73,4 +76,7 @@ const FALLBACK = [
   { name: 'Crude Oil', symbol: 'CL=F', category: 'Commodity', value: 78.61, change: 0.94, changePercent: 1.21, isPositive: true, volume: 0, dayHigh: 79.03, dayLow: 77.42 },
   { name: 'Natural Gas', symbol: 'NG=F', category: 'Commodity', value: 1.84, change: -0.04, changePercent: -2.13, isPositive: false, volume: 0, dayHigh: 1.91, dayLow: 1.81 },
   { name: 'Bitcoin', symbol: 'BTC-USD', category: 'Crypto', value: 67420, change: 2056, changePercent: 3.14, isPositive: true, volume: 0, dayHigh: 67988, dayLow: 65110 },
+  { name: 'Ethereum', symbol: 'ETH-USD', category: 'Crypto', value: 3456.78, change: 87.32, changePercent: 2.59, isPositive: true, volume: 0, dayHigh: 3498.20, dayLow: 3351.40 },
+  { name: 'US Dollar Index', symbol: 'DX-Y.NYB', category: 'Macro', value: 104.12, change: 0.23, changePercent: 0.22, isPositive: true, volume: 0, dayHigh: 104.35, dayLow: 103.88 },
+  { name: '10Y Treasury Yield', symbol: '^TNX', category: 'Macro', value: 4.32, change: -0.05, changePercent: -1.14, isPositive: false, volume: 0, dayHigh: 4.38, dayLow: 4.28 },
 ]

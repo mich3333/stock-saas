@@ -12,7 +12,7 @@ const StockHeatmap = dynamic(() => import('@/components/heatmap/StockHeatmap'), 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: 'var(--text-secondary)',
+        color: '#787b86',
         fontSize: 13,
       }}
     >
@@ -28,27 +28,27 @@ export default function HeatmapPage() {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: 'var(--background)',
+        background: '#131722',
       }}
     >
       {/* Page header */}
       <div
         style={{
           padding: '14px 20px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--panel-strong)',
+          borderBottom: '1px solid #2a2e39',
+          background: '#1e222d',
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           flexShrink: 0,
         }}
       >
-        <BarChart2 size={18} color="var(--accent)" />
+        <BarChart2 size={18} color="#2962ff" />
         <div>
-          <h1 style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', margin: 0, lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 16, fontWeight: 700, color: '#d1d4dc', margin: 0, lineHeight: 1.2 }}>
             Market Heatmap
           </h1>
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0 }}>
+          <p style={{ fontSize: 11, color: '#787b86', margin: 0 }}>
             S&amp;P 500 performance by sector — tile size = market cap, color = % change
           </p>
         </div>
