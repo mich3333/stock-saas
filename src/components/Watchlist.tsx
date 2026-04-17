@@ -139,7 +139,7 @@ function WatchRow({ item, flash, isDragging, dragHandleProps, onRemove, onSelect
       onClick={() => onSelect(item)}
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 70px 64px 68px',
+        gridTemplateColumns: 'minmax(0, 1fr) 72px 66px',
         alignItems: 'center',
         minHeight: 28,
         padding: '0 20px 0 6px',
@@ -188,21 +188,6 @@ function WatchRow({ item, flash, isDragging, dragHandleProps, onRemove, onSelect
         }}
       >
         {formattedPrice}
-      </div>
-
-      <div
-        className="tv-watch-change"
-        style={{
-          textAlign: 'right',
-          fontSize: 11,
-          fontWeight: 500,
-          lineHeight: 1,
-          fontVariantNumeric: 'tabular-nums',
-          justifySelf: 'end',
-          color: changeColor,
-        }}
-      >
-        {formattedChange}
       </div>
 
       <div
@@ -526,7 +511,7 @@ export function Watchlist({ collapsed, onToggle, side = 'left' }: WatchlistProps
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) 70px 64px 68px',
+              gridTemplateColumns: 'minmax(0, 1fr) 72px 66px',
               alignItems: 'center',
               padding: '0.18rem 0.5rem 0.16rem 0.5rem',
               borderBottom: '1px solid #2a2e39',
@@ -545,9 +530,6 @@ export function Watchlist({ collapsed, onToggle, side = 'left' }: WatchlistProps
               Last
             </span>
             <span style={{ fontSize: 8, color: '#787b86', textAlign: 'right', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Chg
-            </span>
-            <span style={{ fontSize: 8, color: '#787b86', textAlign: 'right', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               Chg%
             </span>
           </div>
@@ -560,7 +542,7 @@ export function Watchlist({ collapsed, onToggle, side = 'left' }: WatchlistProps
                 key={i}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) 70px 64px 68px',
+                  gridTemplateColumns: 'minmax(0, 1fr) 72px 66px',
                   alignItems: 'center',
                   padding: '0.2rem 0.5rem',
                   borderBottom: '1px solid #2a2e39',
@@ -569,7 +551,6 @@ export function Watchlist({ collapsed, onToggle, side = 'left' }: WatchlistProps
               >
                 <div className="wl-skeleton tv-skeleton" style={{ width: '42%', height: 8, borderRadius: 3, background: '#232938' }} />
                 <div className="wl-skeleton tv-skeleton" style={{ width: 46, height: 8, borderRadius: 3, background: '#232938', justifySelf: 'end' }} />
-                <div className="wl-skeleton tv-skeleton" style={{ width: 40, height: 8, borderRadius: 3, background: '#232938', justifySelf: 'end' }} />
                 <div className="wl-skeleton tv-skeleton" style={{ width: 44, height: 8, borderRadius: 3, background: '#232938', justifySelf: 'end' }} />
               </div>
             ))}

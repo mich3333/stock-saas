@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Filter, Flame, Star } from 'lucide-react'
 import Navbar from '@/components/Navbar'
-import TickerTape from '@/components/TickerTape'
+import dynamic from 'next/dynamic'
+const TickerTape = dynamic(() => import('@/components/TickerTape'), {
+  ssr: false,
+  loading: () => <div className="w-full h-9 border-b border-[#2a2e39] bg-[#1e222d]" />,
+})
 import IdeaCard from '@/components/IdeaCard'
 import { StockDetailModal } from '@/components/stock/stock-detail-modal'
 
@@ -141,20 +145,11 @@ const MARKET_STRIPS = [
 ]
 
 export default function HomePage() {
-  const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('Popular')
   const [activeFilter, setActiveFilter] = useState('All')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [parallax, setParallax] = useState({ x: 0, y: 0 })
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setMounted(true)
-    })
-
-    return () => window.cancelAnimationFrame(frame)
-  }, [])
 
   const filteredIdeas =
     activeFilter === 'All'
@@ -166,25 +161,6 @@ export default function HomePage() {
           : activeFilter === 'Crypto'
             ? IDEAS.filter((i) => ['BTC', 'ETH'].includes(i.symbol))
             : IDEAS
-
-  if (!mounted) {
-    return (
-      <div className="app-shell market-shell min-h-screen">
-        <Navbar />
-        <div className="pt-14">
-          <div className="h-11 border-b border-[var(--border)] bg-[var(--surface)]" />
-        </div>
-        <div className="max-w-[1240px] mx-auto px-4 py-8 md:py-10">
-          <div className="rounded-[2.5rem] border border-white/8 bg-[var(--surface-elevated)]/70 min-h-[420px] mb-8" />
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
-            <div className="rounded-[2rem] border border-white/8 bg-[var(--surface-elevated)]/60 min-h-[360px]" />
-            <div className="rounded-[2rem] border border-white/8 bg-[var(--surface-elevated)]/60 min-h-[360px]" />
-          </div>
-          <div className="rounded-[2rem] border border-white/8 bg-[var(--surface-elevated)]/60 min-h-[220px]" />
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="app-shell market-shell min-h-screen">
