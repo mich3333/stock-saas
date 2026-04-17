@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Filter, Flame, Star } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import TickerTape from '@/components/TickerTape'
 import IdeaCard from '@/components/IdeaCard'
+import { StockDetailModal } from '@/components/stock/stock-detail-modal'
 
 const IDEAS = [
   {
@@ -133,17 +134,27 @@ const FILTER_OPTIONS = ['All', 'Long', 'Short', 'Stocks', 'Crypto', 'Forex']
 
 const PAGE_SIZE = 6
 const MARKET_STRIPS = [
-  { name: 'S&P 500', value: '6,632.20', unit: 'USD', change: '-0.61%', positive: false },
-  { name: 'Nasdaq 100', value: '24,380.73', unit: 'USD', change: '-0.62%', positive: false },
-  { name: 'Dow 30', value: '42,558.48', unit: 'USD', change: '-0.26%', positive: false },
-  { name: 'US 2000', value: '2,474.08', unit: 'USD', change: '-0.74%', positive: false },
+  { name: 'S&P 500', symbol: 'SPY', value: '6,632.20', unit: 'USD', change: '-0.61%', positive: false },
+  { name: 'Nasdaq 100', symbol: 'QQQ', value: '24,380.73', unit: 'USD', change: '-0.62%', positive: false },
+  { name: 'Dow 30', symbol: 'DIA', value: '42,558.48', unit: 'USD', change: '-0.26%', positive: false },
+  { name: 'US 2000', symbol: 'IWM', value: '2,474.08', unit: 'USD', change: '-0.74%', positive: false },
 ]
 
 export default function HomePage() {
+  const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('Popular')
   const [activeFilter, setActiveFilter] = useState('All')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [parallax, setParallax] = useState({ x: 0, y: 0 })
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setMounted(true)
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
 
   const filteredIdeas =
     activeFilter === 'All'
@@ -155,6 +166,25 @@ export default function HomePage() {
           : activeFilter === 'Crypto'
             ? IDEAS.filter((i) => ['BTC', 'ETH'].includes(i.symbol))
             : IDEAS
+
+  if (!mounted) {
+    return (
+      <div className="app-shell market-shell min-h-screen">
+        <Navbar />
+        <div className="pt-14">
+          <div className="h-11 border-b border-[var(--border)] bg-[var(--surface)]" />
+        </div>
+        <div className="max-w-[1240px] mx-auto px-4 py-8 md:py-10">
+          <div className="rounded-[2.5rem] border border-white/8 bg-[var(--surface-elevated)]/70 min-h-[420px] mb-8" />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
+            <div className="rounded-[2rem] border border-white/8 bg-[var(--surface-elevated)]/60 min-h-[360px]" />
+            <div className="rounded-[2rem] border border-white/8 bg-[var(--surface-elevated)]/60 min-h-[360px]" />
+          </div>
+          <div className="rounded-[2rem] border border-white/8 bg-[var(--surface-elevated)]/60 min-h-[220px]" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="app-shell market-shell min-h-screen">
@@ -302,7 +332,7 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
           {MARKET_STRIPS.map((item) => (
-            <div key={item.name} className="market-soft-card px-5 py-5">
+            <button key={item.name} onClick={() => setSelectedSymbol(item.symbol)} className="market-soft-card px-5 py-5 text-left w-full" style={{ cursor: 'pointer', background: 'none' }}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg font-semibold text-[var(--foreground)]">{item.name}</span>
                 <ChevronRight size={18} className="text-[var(--text-secondary)]" />
@@ -315,8 +345,74 @@ export default function HomePage() {
                 {item.change}
               </div>
               <div className="mt-4 h-16 rounded-[1.25rem] bg-[linear-gradient(180deg,rgba(239,68,68,0.14),rgba(239,68,68,0.02))] border border-[rgba(239,68,68,0.08)]" />
-            </div>
+            </button>
           ))}
+        </div>
+
+        <StockDetailModal symbol={selectedSymbol} onClose={() => setSelectedSymbol(null)} />
+
+        {/* Feature highlights — TradingView style */}
+        <div className="mb-10">
+          <div className="text-center mb-8">
+            <p className="text-xs uppercase tracking-[0.2em] text-white/50 mb-3">Everything you need</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[var(--foreground)] tracking-tight">
+              Charts built for every trader
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                icon: '📈',
+                title: 'Advanced Charts',
+                desc: 'Candlestick, Heikin Ashi, Renko, and 10+ chart types with 100+ built-in indicators.',
+                color: '#2962ff',
+              },
+              {
+                icon: '🔍',
+                title: 'Stock Screener',
+                desc: 'Filter 10,000+ stocks by technicals, fundamentals, and performance metrics.',
+                color: '#26a69a',
+              },
+              {
+                icon: '🗺️',
+                title: 'Market Heatmap',
+                desc: 'Visualize the entire market at a glance. Spot sector rotation and movers instantly.',
+                color: '#f7931a',
+              },
+              {
+                icon: '🔔',
+                title: 'Price Alerts',
+                desc: 'Set unlimited price alerts and get notified the moment your targets are hit.',
+                color: '#ef5350',
+              },
+              {
+                icon: '💼',
+                title: 'Portfolio Tracker',
+                desc: 'Track your holdings, P&L, and performance with real-time data.',
+                color: '#9c27b0',
+              },
+              {
+                icon: '💬',
+                title: 'Community Ideas',
+                desc: 'Learn from thousands of traders sharing analysis, setups, and market outlooks.',
+                color: '#00bcd4',
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="market-soft-card p-6 rounded-[1.4rem] flex flex-col gap-3 hover:-translate-y-0.5 transition-transform"
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                  style={{ background: f.color + '22', border: `1px solid ${f.color}44` }}
+                >
+                  {f.icon}
+                </div>
+                <h3 className="font-semibold text-[var(--foreground)] text-[15px]">{f.title}</h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="market-soft-card px-5 py-6 md:px-8 md:py-8 mb-8">
@@ -415,6 +511,38 @@ export default function HomePage() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* CTA block */}
+      <div className="max-w-[1240px] mx-auto px-4">
+        <div
+          className="mt-12 mb-4 rounded-[2rem] p-8 md:p-12 text-center relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #1e222d 0%, #131722 100%)', border: '1px solid #2a2e39' }}
+        >
+          <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(circle at 50% 0%, #2962ff55, transparent 70%)' }} />
+          <div className="relative z-10">
+            <h2 className="text-2xl md:text-4xl font-bold text-white mb-4 tracking-tight">
+              Start trading smarter today
+            </h2>
+            <p className="text-sm md:text-base text-white/70 mb-8 max-w-lg mx-auto">
+              Join millions of traders on the platform built for serious market analysis. Free forever, no credit card required.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center px-8 py-3 rounded-full text-sm font-semibold bg-[#2962ff] text-white hover:-translate-y-0.5 transition-transform shadow-[0_8px_30px_rgba(41,98,255,0.4)]"
+              >
+                Get started — it&apos;s free
+              </Link>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center px-8 py-3 rounded-full text-sm font-medium border border-white/20 text-white/80 hover:text-white hover:-translate-y-0.5 transition-transform"
+              >
+                Open live chart
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Footer */}

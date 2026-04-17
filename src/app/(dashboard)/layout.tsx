@@ -2,30 +2,44 @@
 import { useState, useRef, Suspense, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BarChart2, PieChart, Search, Users, Settings, Bell, Menu, Grid3X3, LogOut, Globe, TrendingUp } from 'lucide-react'
+import {
+  TrendingUp, Bell, Menu, LogOut, Search, ChevronDown, LayoutGrid, MoreHorizontal, Bookmark,
+  MousePointer2, Minus, TrendingUp as TrendLine, Square, Type, Magnet, ZoomIn,
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Watchlist } from '@/components/Watchlist'
-import { NewsFeed } from '@/components/NewsFeed'
 import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/useKeyboardShortcuts'
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { supabase } from '@/lib/supabase'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: BarChart2 },
-  { href: '/markets', label: 'Markets', icon: Globe },
-  { href: '/portfolio', label: 'Portfolio', icon: PieChart },
-  { href: '/heatmap', label: 'Heatmap', icon: Grid3X3 },
-  { href: '/screener', label: 'Screener', icon: Search },
-  { href: '/community', label: 'Community', icon: Users },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/markets', label: 'Markets' },
+  { href: '/portfolio', label: 'Portfolio' },
+  { href: '/heatmap', label: 'Heatmap' },
+  { href: '/screener', label: 'Screener' },
+  { href: '/community', label: 'Community' },
+]
+
+const SHELL_LINKS = [
+  { label: 'Community', href: '/community' },
+  { label: 'Markets', href: '/markets' },
+  { label: 'Brokers', href: '/portfolio' },
+  { label: 'More', href: '/settings' },
+]
+
+const DRAWING_TOOLS = [
+  { id: 'cursor', icon: MousePointer2, label: 'Cursor' },
+  { id: 'trendline', icon: TrendLine, label: 'Trend Line' },
+  { id: 'hline', icon: Minus, label: 'Horizontal Line' },
+  { id: 'rectangle', icon: Square, label: 'Rectangle' },
+  { id: 'text', icon: Type, label: 'Text' },
+  { id: 'magnet', icon: Magnet, label: 'Magnet' },
+  { id: 'zoom', icon: ZoomIn, label: 'Zoom' },
 ]
 
 function isMarketOpen(): boolean {
-  // NYSE hours: Mon-Fri 9:30am – 4:00pm Eastern Time
   const now = new Date()
-  // Convert to ET (UTC-5 standard, UTC-4 daylight saving)
-  // Use Intl to get the current ET hour/minute/weekday reliably
   const etParts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     hour: 'numeric',
@@ -34,7 +48,7 @@ function isMarketOpen(): boolean {
     hour12: false,
   }).formatToParts(now)
   const get = (type: string) => etParts.find(p => p.type === type)?.value ?? ''
-  const weekday = get('weekday') // 'Mon', 'Tue', etc.
+  const weekday = get('weekday')
   const hour = parseInt(get('hour'), 10)
   const minute = parseInt(get('minute'), 10)
   const isWeekday = !['Sat', 'Sun'].includes(weekday)
@@ -48,15 +62,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const [watchlistCollapsed, setWatchlistCollapsed] = useState(false)
   const [marketOpen, setMarketOpen] = useState(isMarketOpen)
+  const [activeTool, setActiveTool] = useState('cursor')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement | null>(null)
+  const showDrawingTools = pathname.startsWith('/chart')
 
   useEffect(() => {
-    // Re-check every minute so the indicator updates without a page reload
     const id = setInterval(() => setMarketOpen(isMarketOpen()), 60_000)
     return () => clearInterval(id)
   }, [])
-  const [newsFeedCollapsed, setNewsFeedCollapsed] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const searchRef = useRef<HTMLInputElement | null>(null)
 
   useKeyboardShortcuts([
     { ...SHORTCUTS.TOGGLE_SIDEBAR, handler: () => setWatchlistCollapsed(v => !v) },
@@ -71,79 +85,187 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="app-shell flex flex-col h-screen overflow-hidden">
+    <div className="app-shell flex flex-col h-screen overflow-hidden" style={{ background: '#131722' }}>
       <Suspense><OnboardingModal /></Suspense>
+
       {/* Top nav */}
       <header
-        className="glass-panel flex items-center justify-between px-4 flex-shrink-0 border-b"
-        style={{ height: 52 }}
+        className="flex flex-col flex-shrink-0 border-b"
+        style={{ background: '#050608', borderColor: '#1f232d' }}
       >
-        <div className="flex items-center gap-6">
+        <div
+          className="flex items-center justify-between px-3 md:px-4"
+          style={{ height: 46, borderBottom: '1px solid #11141a' }}
+        >
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <button
-            className="md:hidden p-2 rounded-full hover:bg-[var(--accent-soft)] transition-colors text-[var(--text-secondary)]"
+            className="md:hidden p-2 rounded-full transition-colors"
+            style={{ color: '#787B86' }}
             onClick={() => setMobileMenuOpen(v => !v)}
             aria-label="Open watchlist"
           >
             <Menu size={16} />
           </button>
-          <Link href="/dashboard" className="flex items-center gap-1.5">
-            <div className="flex items-center justify-center w-8 h-8 rounded-2xl bg-[var(--accent)] shadow-[0_12px_24px_var(--glow)]">
-              <TrendingUp size={16} className="text-white" />
+          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center justify-center w-7 h-7 rounded-md" style={{ background: '#ffffff' }}>
+              <TrendingUp size={15} style={{ color: '#050608' }} />
             </div>
-            <span className="font-bold text-sm text-[var(--foreground)]">StockFlow</span>
+            <span className="font-bold text-[13px] hidden sm:inline" style={{ color: '#f5f7fb' }}>StockFlow</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+
+            <div
+              className="hidden lg:flex items-center gap-2 rounded-full px-3 shrink-0"
+              style={{ height: 32, minWidth: 148, background: '#11141a', border: '1px solid #1f232d' }}
+            >
+              <Search size={13} style={{ color: '#6b7280' }} />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Search"
+                aria-label="Search"
+                className="w-full bg-transparent outline-none text-[12px]"
+                style={{ color: '#d1d4dc' }}
+              />
+              <span style={{ fontSize: 10, color: '#6b7280' }}>⌘K</span>
+            </div>
+
+            <button
+              className="hidden md:inline-flex items-center gap-1.5 px-3 rounded-full text-[12px] font-medium shrink-0"
+              style={{ height: 32, background: '#11141a', color: '#f5f7fb', border: '1px solid #1f232d' }}
+            >
+              Products
+              <ChevronDown size={13} />
+            </button>
+
+            <nav className="hidden lg:flex items-center gap-0.5 h-full min-w-0 overflow-x-auto">
+              {SHELL_LINKS.map(({ href, label }) => {
+                const active = href !== '/settings' && pathname.startsWith(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center px-2.5 text-[12px] font-medium transition-colors rounded-md h-8 shrink-0"
+                    style={{
+                      color: active ? '#f5f7fb' : '#9ca3af',
+                      background: active ? '#0b0e13' : 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.color = '#f5f7fb'
+                        e.currentTarget.style.background = '#0b0e13'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.color = '#9ca3af'
+                        e.currentTarget.style.background = 'transparent'
+                      }
+                    }}
+                  >
+                    {label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div
+              className="ticker-mono hidden sm:flex items-center gap-1.5 px-3 rounded-full text-[11px] border"
+              style={{
+                height: 32,
+                borderColor: '#1f232d',
+                background: '#11141a',
+                color: '#d1d4dc',
+              }}
+            >
+              <div
+                className={`tv-status-dot ${marketOpen ? 'live' : 'closed'}`}
+              />
+              <span>{marketOpen ? 'Market Open' : 'Market Closed'}</span>
+            </div>
+            <button
+              className="hidden md:inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+              style={{ color: '#787B86', border: '1px solid #1f232d', background: '#0b0e13' }}
+            >
+              <Bell size={15} />
+            </button>
+            <button
+              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+              style={{ color: '#787B86', border: '1px solid #1f232d', background: '#0b0e13' }}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+              style={{ color: '#787B86', border: '1px solid #1f232d', background: '#0b0e13' }}
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            <button
+              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+              style={{ color: '#787B86', border: '1px solid #1f232d', background: '#0b0e13' }}
+            >
+              <Bookmark size={14} />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 rounded-full text-[12px] font-medium border transition-colors"
+              style={{ height: 32, borderColor: '#1f232d', background: '#11141a', color: '#9ca3af' }}
+            >
+              <LogOut size={13} />
+              Sign out
+            </button>
+            <button
+              onClick={handleLogout}
+              className="md:hidden p-2 rounded transition-colors"
+              style={{ color: '#787B86' }}
+              aria-label="Sign out"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        </div>
+
+        <div
+          className="hidden md:flex items-center justify-between px-3 md:px-4"
+          style={{ height: 38, background: '#07090d' }}
+        >
+          <nav className="flex items-center gap-1 min-w-0 overflow-x-auto">
+            {NAV_ITEMS.map(({ href, label }) => {
               const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    active
-                      ? 'bg-[var(--foreground)] text-[var(--background)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--accent-soft)]'
-                  }`}
+                  className="flex items-center px-3 text-[12px] font-medium transition-colors rounded-md h-7 shrink-0"
+                  style={{
+                    color: active ? '#f5f7fb' : '#9ca3af',
+                    background: active ? '#11141a' : 'transparent',
+                    borderBottom: active ? '2px solid #2962ff' : '2px solid transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.color = '#f5f7fb'
+                      e.currentTarget.style.background = '#0b0e13'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) {
+                      e.currentTarget.style.color = '#9ca3af'
+                      e.currentTarget.style.background = 'transparent'
+                    }
+                  }}
                 >
-                  <Icon size={13} />
                   {label}
                 </Link>
               )
             })}
           </nav>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleLogout}
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[var(--border)] bg-[var(--panel)] text-[var(--foreground)] hover:bg-[var(--accent-soft)]"
-          >
-            <LogOut size={13} />
-            Sign out
-          </button>
-          <div
-            className="ticker-mono flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-[var(--border)] bg-[var(--panel)]"
-            style={{ color: marketOpen ? 'var(--green)' : 'var(--text-secondary)' }}
-          >
-            <div
-              className={marketOpen ? 'w-1.5 h-1.5 rounded-full animate-pulse' : 'w-1.5 h-1.5 rounded-full'}
-              style={{ background: marketOpen ? 'var(--green)' : 'var(--red)' }}
-            />
-            <span>{marketOpen ? 'Market Open' : 'Market Closed'}</span>
+          <div className="hidden lg:flex items-center gap-2 text-[11px]" style={{ color: '#6b7280' }}>
+            <span>Workspace</span>
+            <span style={{ color: '#f5f7fb' }}>StockFlow Terminal</span>
           </div>
-          <button className="p-2 rounded-full hover:bg-[var(--accent-soft)] transition-colors text-[var(--text-secondary)]">
-            <Bell size={15} />
-          </button>
-          <div className="rounded-full border border-[var(--border)] bg-[var(--panel)] p-0.5">
-            <ThemeToggle />
-          </div>
-          <button
-            onClick={handleLogout}
-            className="md:hidden p-2 rounded-full hover:bg-[var(--accent-soft)] transition-colors text-[var(--text-secondary)]"
-            aria-label="Sign out"
-          >
-            <LogOut size={15} />
-          </button>
         </div>
       </header>
 
@@ -160,13 +282,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onClick={() => setMobileMenuOpen(false)}
             />
             <motion.div
-              className="fixed left-0 top-0 bottom-0 z-50 md:hidden"
-              initial={{ x: -260 }}
+              className="fixed right-0 top-0 bottom-0 z-50 md:hidden"
+              initial={{ x: 260 }}
               animate={{ x: 0 }}
-              exit={{ x: -260 }}
+              exit={{ x: 260 }}
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
             >
-              <Watchlist collapsed={false} onToggle={() => setMobileMenuOpen(false)} />
+              <Watchlist collapsed={false} onToggle={() => setMobileMenuOpen(false)} side="right" />
             </motion.div>
           </>
         )}
@@ -174,18 +296,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Watchlist — desktop only */}
-        <div className="hidden md:block">
-          <Watchlist collapsed={watchlistCollapsed} onToggle={() => setWatchlistCollapsed(v => !v)} />
-        </div>
+        {/* Left: Drawing tools toolbar — chart pages only */}
+        {showDrawingTools && (
+          <div
+            className="tv-tools-sidebar hidden md:flex flex-col items-center py-1.5 gap-0.5 flex-shrink-0 border-r"
+            style={{ width: 44, borderColor: '#2A2E39' }}
+          >
+            {DRAWING_TOOLS.map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                title={label}
+                data-label={label}
+                onClick={() => setActiveTool(id)}
+                className={`tv-tool-btn${activeTool === id ? ' active' : ''} flex items-center justify-center w-[28px] h-[28px] rounded transition-colors`}
+                style={{
+                  background: activeTool === id ? 'rgba(41,98,255,0.2)' : 'transparent',
+                  color: activeTool === id ? '#2962FF' : '#787B86',
+                }}
+              >
+                <Icon size={14} />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto">
+        <main
+          className={`flex-1 ${pathname === '/dashboard' ? 'overflow-hidden' : 'overflow-y-auto'}`}
+          style={{ background: '#131722' }}
+        >
           {children}
         </main>
 
-        {/* Right: News/Ideas panel */}
-        <NewsFeed collapsed={newsFeedCollapsed} onToggle={() => setNewsFeedCollapsed(v => !v)} />
+        {/* Right: Watchlist — desktop only */}
+        <div className="hidden md:block flex-shrink-0">
+          <Watchlist
+            collapsed={watchlistCollapsed}
+            onToggle={() => setWatchlistCollapsed(v => !v)}
+            side="right"
+          />
+        </div>
       </div>
     </div>
   )

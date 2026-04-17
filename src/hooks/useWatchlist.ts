@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 export interface WatchItem {
-  symbol: string
+  symbol: string       // TradingView symbol e.g. "SP:SPX"
+  routeSymbol: string  // Yahoo Finance symbol for chart navigation e.g. "^GSPC"
   name: string
   price: number
   change: number
@@ -14,8 +15,87 @@ export interface WatchItem {
   lastUpdated?: number
 }
 
-const DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'SPY']
-const STORAGE_KEY = 'stockflow:watchlist'
+export interface WatchCategory {
+  label: string
+  symbols: string[]
+}
+
+// TradingView symbol → Yahoo Finance symbol (for chart routing)
+export const TV_TO_YF: Record<string, string> = {
+  'SP:SPX':          '^GSPC',
+  'PEPPERSTONE:NDQ': '^IXIC',
+  'DJ:DJI':          '^DJI',
+  'CBOE:VIX':        '^VIX',
+  'TVC:DXY':         'DX-Y.NYB',
+  'NASDAQ:AAPL':     'AAPL',
+  'NASDAQ:TSLA':     'TSLA',
+  'NASDAQ:NFLX':     'NFLX',
+  'TVC:USOIL':       'CL=F',
+  'TVC:GOLD':        'GC=F',
+  'TVC:SILVER':      'SI=F',
+  'FX:EURUSD':       'EURUSD=X',
+  'FX:GBPUSD':       'GBPUSD=X',
+  'FX_IDC:USDJPY':   'USDJPY=X',
+  'BINANCE:BTCUSDT': 'BTC-USD',
+  'BINANCE:ETHUSDT': 'ETH-USD',
+}
+
+export const TV_TO_APP_SYMBOL: Record<string, string> = {
+  'SP:SPX': 'SPX',
+  'PEPPERSTONE:NDQ': 'NDQ',
+  'DJ:DJI': 'DJI',
+  'CBOE:VIX': 'VIX',
+  'TVC:DXY': 'DXY',
+  'NASDAQ:AAPL': 'AAPL',
+  'NASDAQ:TSLA': 'TSLA',
+  'NASDAQ:NFLX': 'NFLX',
+  'TVC:USOIL': 'CL1!',
+  'TVC:GOLD': 'GOLD',
+  'TVC:SILVER': 'SILVER',
+  'FX:EURUSD': 'EURUSD',
+  'FX:GBPUSD': 'GBPUSD',
+  'FX_IDC:USDJPY': 'USDJPY',
+  'BINANCE:BTCUSDT': 'BTCUSD',
+  'BINANCE:ETHUSDT': 'ETHUSD',
+}
+
+// Short display names
+export const SYMBOL_DISPLAY: Record<string, string> = {
+  'SP:SPX':          'SPX',
+  'PEPPERSTONE:NDQ': 'NDQ',
+  'DJ:DJI':          'DJI',
+  'CBOE:VIX':        'VIX',
+  'TVC:DXY':         'DXY',
+  'NASDAQ:AAPL':     'AAPL',
+  'NASDAQ:TSLA':     'TSLA',
+  'NASDAQ:NFLX':     'NFLX',
+  'TVC:USOIL':       'USOIL',
+  'TVC:GOLD':        'GOLD',
+  'TVC:SILVER':      'SILVER',
+  'FX:EURUSD':       'EURUSD',
+  'FX:GBPUSD':       'GBPUSD',
+  'FX_IDC:USDJPY':   'USDJPY',
+  'BINANCE:BTCUSDT': 'BTCUSD',
+  'BINANCE:ETHUSDT': 'ETHUSD',
+}
+
+export const WATCH_CATEGORIES: WatchCategory[] = [
+  { label: 'INDICES', symbols: ['SP:SPX', 'PEPPERSTONE:NDQ', 'DJ:DJI', 'CBOE:VIX', 'TVC:DXY'] },
+  { label: 'STOCKS',  symbols: ['NASDAQ:AAPL', 'NASDAQ:TSLA', 'NASDAQ:NFLX'] },
+  { label: 'FUTURES', symbols: ['TVC:USOIL', 'TVC:GOLD', 'TVC:SILVER'] },
+  { label: 'FOREX',   symbols: ['FX:EURUSD', 'FX:GBPUSD', 'FX_IDC:USDJPY'] },
+  { label: 'CRYPTO',  symbols: ['BINANCE:BTCUSDT', 'BINANCE:ETHUSDT'] },
+]
+
+export const CATEGORY_MAP: Record<string, string> = {}
+for (const cat of WATCH_CATEGORIES) {
+  for (const sym of cat.symbols) {
+    CATEGORY_MAP[sym] = cat.label
+  }
+}
+
+const DEFAULT_SYMBOLS = WATCH_CATEGORIES.flatMap((c) => c.symbols)
+const STORAGE_KEY = 'stockflow:watchlist:tv'
 const REFRESH_INTERVAL = 30_000
 
 function loadFromStorage(): string[] | null {
@@ -42,34 +122,33 @@ function saveToStorage(symbols: string[]) {
   }
 }
 
-async function fetchQuote(symbol: string): Promise<WatchItem | null> {
+async function fetchTVPrices(symbols: string[]): Promise<Map<string, WatchItem>> {
+  const result = new Map<string, WatchItem>()
   try {
-    const res = await fetch(`/api/stocks/${symbol}?history=true&period=1mo`, {
+    const res = await fetch('/api/tv-prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbols }),
       cache: 'no-store',
     })
-    if (!res.ok) return null
+    if (!res.ok) return result
     const data = await res.json()
-    const q = data.quote ?? data
-    // Build sparkline from last 15 closing prices of history
-    let sparkline: number[] | undefined
-    if (Array.isArray(data.history) && data.history.length > 0) {
-      sparkline = (data.history as { close: number }[])
-        .slice(-15)
-        .map((d) => d.close)
-    }
-    return {
-      symbol,
-      name: q.shortName ?? symbol,
-      price: q.regularMarketPrice ?? 0,
-      change: q.regularMarketChange ?? 0,
-      changePct: q.regularMarketChangePercent ?? 0,
-      volume: q.regularMarketVolume ?? 0,
-      sparkline,
-      lastUpdated: Date.now(),
+    for (const item of data) {
+      result.set(item.symbol, {
+        symbol: item.symbol,
+        routeSymbol: TV_TO_YF[item.symbol] ?? item.symbol,
+        name: item.name,
+        price: item.price,
+        change: item.change,
+        changePct: item.changePercent,
+        volume: item.volume,
+        lastUpdated: Date.now(),
+      })
     }
   } catch {
-    return null
+    // ignore
   }
+  return result
 }
 
 export interface UseWatchlistResult {
@@ -94,17 +173,36 @@ export function useWatchlist(): UseWatchlistResult {
 
   useEffect(() => {
     isMounted.current = true
-    return () => {
-      isMounted.current = false
-    }
+    return () => { isMounted.current = false }
   }, [])
 
-  // Persist symbol order to localStorage whenever it changes
   useEffect(() => {
     saveToStorage(symbols)
   }, [symbols])
 
-  // Flash helper
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncSymbols = () => {
+      const stored = loadFromStorage()
+      if (!stored) return
+      setSymbols((prev) => {
+        if (prev.length === stored.length && prev.every((symbol, index) => symbol === stored[index])) {
+          return prev
+        }
+        return stored
+      })
+    }
+
+    window.addEventListener('storage', syncSymbols)
+    window.addEventListener('stockflow:watchlist-updated', syncSymbols as EventListener)
+
+    return () => {
+      window.removeEventListener('storage', syncSymbols)
+      window.removeEventListener('stockflow:watchlist-updated', syncSymbols as EventListener)
+    }
+  }, [])
+
   const triggerFlash = useCallback((symbol: string, direction: 'up' | 'down') => {
     if (!isMounted.current) return
     setFlashMap((f) => ({ ...f, [symbol]: direction }))
@@ -113,114 +211,71 @@ export function useWatchlist(): UseWatchlistResult {
     }, 700)
   }, [])
 
-  // Merge fetched results into items, triggering flashes
   const mergeResults = useCallback(
-    (fetched: (WatchItem | null)[], syms: string[]) => {
+    (fetched: Map<string, WatchItem>, syms: string[], keepSparklines = false) => {
       setItems((prev) => {
         const prevMap = Object.fromEntries(prev.map((i) => [i.symbol, i]))
-        return syms.map((sym, idx) => {
-          const result = fetched[idx]
+        return syms.map((sym) => {
+          const result = fetched.get(sym)
           if (!result) {
             return prevMap[sym]
               ? { ...prevMap[sym], stale: true }
-              : { symbol: sym, name: sym, price: 0, change: 0, changePct: 0, stale: true }
+              : { symbol: sym, routeSymbol: TV_TO_YF[sym] ?? sym, name: SYMBOL_DISPLAY[sym] ?? sym, price: 0, change: 0, changePct: 0, stale: true }
           }
           const oldPrice = prevPrices.current[sym]
           if (oldPrice !== undefined && result.price !== oldPrice) {
             triggerFlash(sym, result.price > oldPrice ? 'up' : 'down')
           }
           prevPrices.current[sym] = result.price
-          return { ...result, stale: false }
+          return {
+            ...result,
+            stale: false,
+            sparkline: keepSparklines ? prevMap[sym]?.sparkline : result.sparkline,
+          }
         })
       })
     },
     [triggerFlash]
   )
 
-  // Initial load - fetch all symbols in parallel
+  // Initial load
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       setLoading(true)
-      const results = await Promise.all(symbols.map(fetchQuote))
+      const results = await fetchTVPrices(symbols)
       if (!cancelled && isMounted.current) {
-        // Initialize prevPrices
-        results.forEach((r) => {
-          if (r) prevPrices.current[r.symbol] = r.price
-        })
+        results.forEach((r) => { prevPrices.current[r.symbol] = r.price })
         mergeResults(results, symbols)
         setLoading(false)
       }
     }
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-refresh every 30 seconds (only price, no sparkline to save bandwidth)
+  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (loading) return
     const poll = async () => {
       if (!isMounted.current) return
       const currentSymbols = symbols
-      const results = await Promise.all(
-        currentSymbols.map(async (sym) => {
-          try {
-            const res = await fetch(`/api/stocks/${sym}?history=true`, { cache: 'no-store' })
-            if (!res.ok) return null
-            const data = await res.json()
-            const q = data.quote ?? data
-            return {
-              symbol: sym,
-              name: q.shortName ?? sym,
-              price: q.regularMarketPrice ?? 0,
-              change: q.regularMarketChange ?? 0,
-              changePct: q.regularMarketChangePercent ?? 0,
-              volume: q.regularMarketVolume ?? 0,
-              lastUpdated: Date.now(),
-            } as WatchItem
-          } catch {
-            return null
-          }
-        })
-      )
+      const results = await fetchTVPrices(currentSymbols)
       if (!isMounted.current) return
-      // Merge keeping existing sparklines
-      setItems((prev) => {
-        const prevMap = Object.fromEntries(prev.map((i) => [i.symbol, i]))
-        return currentSymbols.map((sym, idx) => {
-          const result = results[idx]
-          if (!result) {
-            return prevMap[sym]
-              ? { ...prevMap[sym], stale: true }
-              : { symbol: sym, name: sym, price: 0, change: 0, changePct: 0, stale: true }
-          }
-          const oldPrice = prevPrices.current[sym]
-          if (oldPrice !== undefined && result.price !== oldPrice) {
-            triggerFlash(sym, result.price > oldPrice ? 'up' : 'down')
-          }
-          prevPrices.current[sym] = result.price
-          // Preserve sparkline from previous data
-          return { ...result, sparkline: prevMap[sym]?.sparkline, stale: false }
-        })
-      })
+      mergeResults(results, currentSymbols, true)
     }
-
     const id = setInterval(poll, REFRESH_INTERVAL)
     return () => clearInterval(id)
-  }, [loading, symbols, triggerFlash])
+  }, [loading, symbols, mergeResults])
 
   const refresh = useCallback(async () => {
     if (!isMounted.current) return
     setRefreshing(true)
     const currentSymbols = symbols
-    const results = await Promise.all(currentSymbols.map(fetchQuote))
+    const results = await fetchTVPrices(currentSymbols)
     if (isMounted.current) {
-      results.forEach((r) => {
-        if (r) prevPrices.current[r.symbol] = r.price
-      })
+      results.forEach((r) => { prevPrices.current[r.symbol] = r.price })
       mergeResults(results, currentSymbols)
       setRefreshing(false)
     }
@@ -232,17 +287,18 @@ export function useWatchlist(): UseWatchlistResult {
       if (!sym) return { success: false, error: 'Symbol cannot be empty' }
       if (symbols.includes(sym)) return { success: false, error: `${sym} is already in your watchlist` }
 
-      // Fetch to validate
-      const item = await fetchQuote(sym)
+      const results = await fetchTVPrices([sym])
       if (!isMounted.current) return { success: false, error: 'Unmounted' }
 
-      const newItem: WatchItem = item ?? {
+      const fetched = results.get(sym)
+      const newItem: WatchItem = fetched ?? {
         symbol: sym,
-        name: sym,
+        routeSymbol: TV_TO_YF[sym] ?? sym,
+        name: SYMBOL_DISPLAY[sym] ?? sym,
         price: 0,
         change: 0,
         changePct: 0,
-        stale: !item,
+        stale: true,
       }
 
       prevPrices.current[sym] = newItem.price
@@ -282,6 +338,17 @@ export function useWatchlist(): UseWatchlistResult {
       return next
     })
   }, [])
+
+  useEffect(() => {
+    if (loading) return
+
+    const currentSymbols = symbols
+    void fetchTVPrices(currentSymbols).then((results) => {
+      if (!isMounted.current) return
+      results.forEach((r) => { prevPrices.current[r.symbol] = r.price })
+      mergeResults(results, currentSymbols, true)
+    })
+  }, [symbols, loading, mergeResults])
 
   return { items, loading, refreshing, flashMap, addSymbol, removeSymbol, reorder, refresh }
 }

@@ -53,14 +53,14 @@ export default function PortfolioPage() {
   const chartChange = chartEnd - chartStart
   const chartChangePct = chartStart > 0 ? (chartChange / chartStart) * 100 : 0
   const isChartPositive = chartChange >= 0
-  const positiveColor = 'var(--green)'
-  const negativeColor = 'var(--red)'
-  const panelStyle = { background: 'var(--panel-strong)', border: '1px solid var(--border)' }
-  const mutedTextStyle = { color: 'var(--text-secondary)' }
-  const strongTextStyle = { color: 'var(--foreground)' }
+  const positiveColor = '#26a69a'
+  const negativeColor = '#ef5350'
+  const panelStyle = { background: '#1e222d', border: '1px solid #2a2e39' }
+  const mutedTextStyle = { color: '#787b86' }
+  const strongTextStyle = { color: '#d1d4dc' }
 
   return (
-    <div className="p-6 min-h-full" style={{ background: 'var(--background)' }}>
+    <div className="p-6 min-h-full" style={{ background: '#131722' }}>
       <h1 className="text-xl font-bold mb-6" style={strongTextStyle}>Portfolio</h1>
 
       {/* Summary cards */}
@@ -73,7 +73,7 @@ export default function PortfolioPage() {
         ].map(card => (
           <div
             key={card.label}
-            className="rounded-lg p-4"
+            className="tv-card rounded-lg p-4"
             style={panelStyle}
           >
             <p className="text-xs mb-1" style={mutedTextStyle}>{card.label}</p>
@@ -91,7 +91,7 @@ export default function PortfolioPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Area chart */}
         <div
-          className="lg:col-span-2 rounded-lg p-4"
+          className="tv-card lg:col-span-2 rounded-lg p-4"
           style={panelStyle}
         >
           <div className="flex items-center justify-between mb-4">
@@ -115,8 +115,8 @@ export default function PortfolioPage() {
                   onClick={() => setPeriod(p)}
                   className="px-2.5 py-1 text-xs rounded font-medium transition-colors"
                   style={{
-                    background: period === p ? 'var(--accent)' : 'var(--panel-muted)',
-                    color: period === p ? '#fff' : 'var(--text-secondary)',
+                    background: period === p ? '#2962ff' : '#1e222d',
+                    color: period === p ? '#fff' : '#787b86',
                   }}
                 >
                   {p}
@@ -136,21 +136,21 @@ export default function PortfolioPage() {
                 dataKey="date"
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                tick={{ fill: '#787b86', fontSize: 10 }}
                 tickFormatter={v => v.slice(5)}
                 interval="preserveStartEnd"
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                tick={{ fill: '#787b86', fontSize: 10 }}
                 tickFormatter={v => `$${formatLargeNumber(v)}`}
                 width={55}
               />
               <Tooltip
-                contentStyle={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12 }}
-                labelStyle={{ color: 'var(--text-secondary)' }}
-                itemStyle={{ color: 'var(--foreground)' }}
+                contentStyle={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6, fontSize: 12 }}
+                labelStyle={{ color: '#787b86' }}
+                itemStyle={{ color: '#d1d4dc' }}
                 formatter={(v: number | undefined) => [formatCurrency(v ?? 0), 'Value']}
               />
               <Area
@@ -167,7 +167,7 @@ export default function PortfolioPage() {
 
         {/* Pie chart */}
         <div
-          className="rounded-lg p-4"
+          className="tv-card rounded-lg p-4"
           style={panelStyle}
         >
           <p className="text-sm font-semibold mb-3" style={strongTextStyle}>Allocation</p>
@@ -186,7 +186,7 @@ export default function PortfolioPage() {
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{ background: 'var(--panel-strong)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11 }}
+                contentStyle={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6, fontSize: 11 }}
                 formatter={(v: number | undefined) => [formatCurrency(v ?? 0), '']}
               />
             </RechartsPie>
@@ -211,16 +211,16 @@ export default function PortfolioPage() {
       </div>
 
       {/* Holdings table */}
-      <div className="rounded-lg overflow-hidden" style={panelStyle}>
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="tv-card rounded-lg overflow-hidden" style={panelStyle}>
+        <div className="px-4 py-3" style={{ borderBottom: '1px solid #2a2e39' }}>
           <p className="text-sm font-semibold" style={strongTextStyle}>Holdings</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              <tr style={{ borderBottom: '1px solid #2a2e39' }}>
                 {['Symbol', 'Company', 'Shares', 'Avg Cost', 'Current Price', 'Value', 'P&L', 'P&L %'].map(col => (
-                  <th key={col} className="px-4 py-2.5 text-left font-medium" style={mutedTextStyle}>
+                  <th key={col} className="px-4 py-2.5 text-left font-medium" style={{ color: '#787b86', fontSize: '11px' }}>
                     {col}
                   </th>
                 ))}
@@ -230,15 +230,15 @@ export default function PortfolioPage() {
               {holdings.map((h, i) => (
                 <tr
                   key={h.symbol}
-                  style={{ borderBottom: i < holdings.length - 1 ? '1px solid var(--border)' : 'none' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-soft)')}
+                  style={{ borderBottom: i < holdings.length - 1 ? '1px solid #2a2e39' : 'none' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(41,98,255,0.1)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <td className="px-4 py-3 font-bold" style={{ color: 'var(--accent)' }}>{h.symbol}</td>
+                  <td className="px-4 py-3 font-bold" style={{ color: '#2962ff' }}>{h.symbol}</td>
                   <td className="px-4 py-3" style={strongTextStyle}>{h.company}</td>
-                  <td className="px-4 py-3 tabular-nums" style={strongTextStyle}>{h.shares}</td>
-                  <td className="px-4 py-3 tabular-nums" style={strongTextStyle}>{formatCurrency(h.avgCost)}</td>
-                  <td className="px-4 py-3 tabular-nums" style={strongTextStyle}>{formatCurrency(h.currentPrice)}</td>
+                  <td className="px-4 py-3 tv-num tabular-nums" style={strongTextStyle}>{h.shares}</td>
+                  <td className="px-4 py-3 tv-num tabular-nums" style={strongTextStyle}>{formatCurrency(h.avgCost)}</td>
+                  <td className="px-4 py-3 tv-num tabular-nums" style={strongTextStyle}>{formatCurrency(h.currentPrice)}</td>
                   <td className="px-4 py-3 tabular-nums font-medium" style={strongTextStyle}>{formatCurrency(h.value)}</td>
                   <td className="px-4 py-3 tabular-nums font-medium" style={{ color: h.pnl >= 0 ? positiveColor : negativeColor }}>
                     {h.pnl >= 0 ? '+' : ''}{formatCurrency(h.pnl)}
