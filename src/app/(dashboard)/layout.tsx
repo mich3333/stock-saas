@@ -227,46 +227,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        <div
-          className="hidden md:flex items-center justify-between px-3 md:px-4"
-          style={{ height: 38, background: '#07090d' }}
-        >
-          <nav className="flex items-center gap-1 min-w-0 overflow-x-auto">
-            {NAV_ITEMS.map(({ href, label }) => {
-              const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center px-3 text-[12px] font-medium transition-colors rounded-md h-7 shrink-0"
-                  style={{
-                    color: active ? '#f5f7fb' : '#9ca3af',
-                    background: active ? '#11141a' : 'transparent',
-                    borderBottom: active ? '2px solid #2962ff' : '2px solid transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.color = '#f5f7fb'
-                      e.currentTarget.style.background = '#0b0e13'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.color = '#9ca3af'
-                      e.currentTarget.style.background = 'transparent'
-                    }
-                  }}
-                >
-                  {label}
-                </Link>
-              )
-            })}
-          </nav>
-          <div className="hidden lg:flex items-center gap-2 text-[11px]" style={{ color: '#6b7280' }}>
-            <span>Workspace</span>
-            <span style={{ color: '#f5f7fb' }}>StockFlow Terminal</span>
-          </div>
-        </div>
       </header>
 
       {/* Mobile watchlist overlay */}
