@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { CreditCard, Zap, Building2, CheckCircle, CalendarClock, CircleAlert, WalletCards } from 'lucide-react'
 import { PLANS } from '@/lib/stripe'
 import type { Subscription } from '@/types'
@@ -19,10 +20,10 @@ const BILLING_MESSAGES: Record<string, { tone: 'success' | 'warning' | 'error'; 
   portal_returned: { tone: 'success', text: 'Returned from the billing portal.' },
 }
 
-function bannerStyle(tone: 'success' | 'warning' | 'error'): React.CSSProperties {
-  if (tone === 'success') return { border: '1px solid rgba(38,166,154,0.3)', background: 'rgba(38,166,154,0.1)', color: '#26a69a' }
-  if (tone === 'warning') return { border: '1px solid rgba(245,166,35,0.3)', background: 'rgba(245,166,35,0.1)', color: '#f5a623' }
-  return { border: '1px solid rgba(239,83,80,0.3)', background: 'rgba(239,83,80,0.1)', color: '#ef5350' }
+function bannerClass(tone: 'success' | 'warning' | 'error') {
+  if (tone === 'success') return 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300'
+  if (tone === 'warning') return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+  return 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300'
 }
 
 export function SubscriptionStatus() {
@@ -95,16 +96,10 @@ export function SubscriptionStatus() {
   const hasPaidPlan = tier !== 'free'
 
   const tierIcon = {
-    free: <Zap size={20} style={{ color: '#787b86' }} />,
-    pro: <CreditCard size={20} style={{ color: '#2962ff' }} />,
-    enterprise: <Building2 size={20} style={{ color: '#2962ff' }} />,
+    free: <Zap size={20} className="text-gray-400" />,
+    pro: <CreditCard size={20} className="text-[var(--accent)]" />,
+    enterprise: <Building2 size={20} className="text-purple-500" />,
   }[tier]
-
-  const tierBadgeStyle: React.CSSProperties = tier === 'enterprise'
-    ? { background: 'rgba(41,98,255,0.15)', color: '#2962ff', border: 'none', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
-    : tier === 'pro'
-      ? { background: 'rgba(41,98,255,0.15)', color: '#2962ff', border: 'none', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
-      : { background: 'rgba(120,123,134,0.15)', color: '#787b86', border: 'none', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
 
   const nextBillingLabel = useMemo(() => {
     if (!subscription?.current_period_end) return null
@@ -114,154 +109,150 @@ export function SubscriptionStatus() {
 
   if (loading) {
     return (
-      <div
-        className="p-6 animate-pulse"
-        style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6, minHeight: 288 }}
-      />
+      <div className="glass-panel-strong rounded-[1.75rem] p-6 animate-pulse h-72" />
     )
   }
 
   return (
-    <div style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6, padding: 24 }}>
+    <div className="glass-panel-strong rounded-[1.75rem] p-6">
       <div className="flex flex-col gap-4">
         {banner && (
-          <div className="px-4 py-3 text-sm" style={{ borderRadius: 6, ...bannerStyle(banner.tone) }}>
+          <div className={`rounded-2xl border px-4 py-3 text-sm ${bannerClass(banner.tone)}`}>
             {banner.text}
           </div>
         )}
 
         {actionError && (
-          <div
-            className="px-4 py-3 text-sm"
-            style={{ borderRadius: 6, border: '1px solid rgba(239,83,80,0.3)', background: 'rgba(239,83,80,0.1)', color: '#ef5350' }}
-          >
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
             {actionError}
           </div>
         )}
 
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-11 w-11 items-center justify-center"
-              style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6 }}
-            >
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel)]">
               {tierIcon}
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: '#d1d4dc' }}>{plan.name} Plan</h3>
-              <p className="text-sm" style={{ color: '#787b86' }}>
+              <h3 className="font-semibold text-[var(--foreground)]">{plan.name} Plan</h3>
+              <p className="text-sm text-[var(--text-secondary)]">
                 {plan.price === 0 ? 'Free forever' : `$${plan.price}/month`}
               </p>
             </div>
           </div>
-          <span style={tierBadgeStyle}>
+          <Badge
+            className={
+              tier === 'enterprise'
+                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                : tier === 'pro'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+            }
+          >
             {tier.charAt(0).toUpperCase() + tier.slice(1)}
-          </span>
+          </Badge>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="px-4 py-4" style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6 }}>
-            <div className="ticker-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: '#787b86' }}>Subscription status</div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] px-4 py-4">
+            <div className="ticker-mono text-[11px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">Subscription status</div>
             <div className="mt-2 flex items-center gap-2 text-sm">
-              <span className="font-semibold" style={{
-                color: subscription?.status === 'active' || subscription?.status === 'trialing' ? '#26a69a' : '#ef5350'
-              }}>
+              <span className={`font-semibold ${
+                subscription?.status === 'active' || subscription?.status === 'trialing'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
                 {subscription?.status ?? 'free'}
               </span>
               {subscription?.cancel_at_period_end && (
-                <span
-                  className="px-2 py-0.5 text-xs"
-                  style={{ borderRadius: 9999, background: 'rgba(245,166,35,0.1)', color: '#f5a623' }}
-                >
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
                   Cancels at period end
                 </span>
               )}
             </div>
           </div>
 
-          <div className="px-4 py-4" style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6 }}>
-            <div className="ticker-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: '#787b86' }}>Billing cycle</div>
-            <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: '#d1d4dc' }}>
-              <CalendarClock size={15} style={{ color: '#2962ff' }} />
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] px-4 py-4">
+            <div className="ticker-mono text-[11px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">Billing cycle</div>
+            <div className="mt-2 flex items-center gap-2 text-sm text-[var(--foreground)]">
+              <CalendarClock size={15} className="text-[var(--accent)]" />
               <span>{nextBillingLabel ?? 'No active billing cycle yet'}</span>
             </div>
           </div>
         </div>
 
         {!hasPaidPlan && (
-          <div className="p-4" style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6 }}>
-            <p className="text-sm font-medium" style={{ color: '#d1d4dc' }}>Upgrade to unlock:</p>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+            <p className="text-sm text-[var(--foreground)] font-medium">Upgrade to unlock:</p>
             <ul className="mt-3 space-y-2">
               {['Unlimited watchlist stocks', 'Price alerts via email', 'CSV export', 'API access (Enterprise)'].map((feature) => (
-                <li key={feature} className="flex items-center gap-2 text-sm" style={{ color: '#787b86' }}>
-                  <CheckCircle size={14} className="shrink-0" style={{ color: '#26a69a' }} />
+                <li key={feature} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <CheckCircle size={14} className="shrink-0 text-[var(--green)]" />
                   {feature}
                 </li>
               ))}
             </ul>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
-              <button
+              <Button
+                size="sm"
                 onClick={() => handleUpgrade('pro')}
                 disabled={upgrading !== null}
-                className="w-full px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: '#2962ff', color: '#fff', borderRadius: 4, border: 'none' }}
+                className="w-full"
               >
                 {upgrading === 'pro' ? 'Redirecting...' : 'Upgrade to Pro'}
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => handleUpgrade('enterprise')}
                 disabled={upgrading !== null}
-                className="w-full px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: 'transparent', color: '#d1d4dc', borderRadius: 4, border: '1px solid #2a2e39' }}
+                className="w-full"
               >
                 {upgrading === 'enterprise' ? 'Redirecting...' : 'Upgrade to Enterprise'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {hasPaidPlan && (
-          <div className="p-4" style={{ background: '#1e222d', border: '1px solid #2a2e39', borderRadius: 6 }}>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
             <div className="flex items-start gap-3">
-              <WalletCards size={18} className="mt-0.5" style={{ color: '#2962ff' }} />
+              <WalletCards size={18} className="mt-0.5 text-[var(--accent)]" />
               <div className="flex-1">
-                <p className="text-sm font-medium" style={{ color: '#d1d4dc' }}>Billing actions</p>
-                <p className="mt-1 text-sm" style={{ color: '#787b86' }}>
+                <p className="text-sm font-medium text-[var(--foreground)]">Billing actions</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
                   Manage your payment method, invoices, renewal preferences, and cancellation inside the Stripe billing portal.
                 </p>
               </div>
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-3">
-              <button
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => handleBillingPortal('payment-method')}
                 disabled={portalLoading !== null}
-                className="px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: 'transparent', color: '#d1d4dc', borderRadius: 4, border: '1px solid #2a2e39' }}
               >
                 {portalLoading === 'payment-method' ? 'Loading...' : 'Manage payment method'}
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => handleBillingPortal('subscription')}
                 disabled={portalLoading !== null}
-                className="px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: 'transparent', color: '#d1d4dc', borderRadius: 4, border: '1px solid #2a2e39' }}
               >
                 {portalLoading === 'subscription' ? 'Loading...' : 'Manage subscription'}
-              </button>
-              <button
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => handleBillingPortal('subscription')}
                 disabled={portalLoading !== null}
-                className="px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: 'transparent', color: '#d1d4dc', borderRadius: 4, border: '1px solid #2a2e39' }}
               >
                 {portalLoading === 'subscription' ? 'Loading...' : 'Open billing portal'}
-              </button>
+              </Button>
             </div>
             {subscription?.status === 'past_due' && (
-              <div
-                className="mt-4 flex items-start gap-2 px-4 py-3 text-sm"
-                style={{ borderRadius: 6, border: '1px solid rgba(245,166,35,0.3)', background: 'rgba(245,166,35,0.1)', color: '#f5a623' }}
-              >
+              <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                 <CircleAlert size={16} className="mt-0.5 shrink-0" />
                 <span>Your latest payment failed. Update your payment method in the billing portal to restore paid access.</span>
               </div>

@@ -1,24 +1,26 @@
 'use client'
-
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { motion } from 'framer-motion'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { StatCard } from '@/components/ui/stat-card'
+import { StockCard } from '@/components/stock/stock-card'
 import { StockChart } from '@/components/charts/stock-chart'
+import { NewsFeed } from '@/components/news/news-feed'
+import { EarningsCalendar } from '@/components/earnings/earnings-calendar'
+import { PortfolioTracker } from '@/components/portfolio/portfolio-tracker'
+import { DraggableGrid, DashboardWidget } from '@/components/dashboard/draggable-grid'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
+import { SkeletonCard } from '@/components/ui/skeleton'
+import { Search, BarChart2, Activity, GripHorizontal, BarChart } from 'lucide-react'
+import type { QuoteData, ChartPoint } from '@/types'
 
-const SYMBOLS = [
-  { tv: 'SPX',  yf: '^GSPC',   name: 'S&P 500',   exchange: 'INDEXSP' },
-  { tv: 'NDQ',  yf: '^IXIC',   name: 'NASDAQ',     exchange: 'INDEXNASDAQ' },
-  { tv: 'DJI',  yf: '^DJI',    name: 'Dow Jones',  exchange: 'INDEXDJX' },
-  { tv: 'VIX',  yf: '^VIX',    name: 'Volatility', exchange: 'CBOE' },
-  { tv: 'AAPL', yf: 'AAPL',    name: 'Apple',      exchange: 'NASDAQ' },
-  { tv: 'TSLA', yf: 'TSLA',    name: 'Tesla',      exchange: 'NASDAQ' },
-  { tv: 'NVDA', yf: 'NVDA',    name: 'NVIDIA',     exchange: 'NASDAQ' },
-  { tv: 'GOLD', yf: 'GC=F',    name: 'Gold',       exchange: 'COMEX' },
-  { tv: 'BTC',  yf: 'BTC-USD', name: 'Bitcoin',    exchange: 'CRYPTO' },
-] as const
+const POPULAR_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META', 'NFLX']
 
-interface MarketData {
+interface MarketIndex {
+  name: string
+  symbol: string
+  category: string
   value: number
   change: number
   changePercent: number
@@ -28,233 +30,318 @@ interface MarketData {
   dayLow: number
 }
 
-type SymbolEntry = (typeof SYMBOLS)[number]
-
-function fmtPrice(n: number) {
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+interface StockData {
+  symbol: string
+  quote: QuoteData
+  history: ChartPoint[]
 }
 
-function fmtCompact(n: number) {
-  if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(1)}B`
-  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`
-  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}K`
-  return n.toLocaleString('en-US', { maximumFractionDigits: 0 })
-}
-
-function ChartPage() {
+function DashboardContent() {
   const router = useRouter()
-  const [selectedIdx, setSelectedIdx] = useState(0)
-  const [dataMap, setDataMap] = useState<Record<string, MarketData>>({})
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchParams = useSearchParams()
+  const [stocks, setStocks] = useState<StockData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(() => searchParams.get('symbol'))
+  const [watchlistId, setWatchlistId] = useState<string | null>(null)
+  const [watchlistItems, setWatchlistItems] = useState<{ id: string; symbol: string }[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isDragMode, setIsDragMode] = useState(false)
+  const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([])
+  const [indicesLoading, setIndicesLoading] = useState(true)
 
-  const selected = SYMBOLS[selectedIdx]
-  const data = dataMap[selected.yf] ?? null
+  const formatCompactNumber = (value: number) => {
+    if (!value) return 'N/A'
+    if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`
+    if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`
+    if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`
+    return value.toFixed(0)
+  }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.push('/login')
-    })
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+      const res = await fetch('/api/watchlist')
+      const { data } = await res.json()
+      if (data && data.length > 0) {
+        setWatchlistId(data[0].id)
+        setWatchlistItems((data[0].watchlist_items || []).map((i: { id: string; symbol: string }) => ({ id: i.id, symbol: i.symbol })))
+      }
+    }
+    checkAuth()
   }, [router])
 
-  const fetchData = useCallback(() => {
-    fetch('/api/indices')
-      .then(r => (r.ok ? r.json() : null))
-      .then(resp => {
-        if (!resp?.indices?.length) return
-        const map: Record<string, MarketData> = {}
-        for (const idx of resp.indices) {
-          map[idx.symbol] = {
-            value: idx.value,
-            change: idx.change,
-            changePercent: idx.changePercent,
-            isPositive: idx.isPositive,
-            volume: idx.volume,
-            dayHigh: idx.dayHigh,
-            dayLow: idx.dayLow,
-          }
+  useEffect(() => {
+    const fetchIndices = async () => {
+      try {
+        const res = await fetch('/api/indices')
+        if (res.ok) {
+          const { indices } = await res.json()
+          setMarketIndices(indices || [])
         }
-        setDataMap(map)
-      })
-      .catch(() => {})
+      } catch {
+        // non-critical; market indices will be empty
+      } finally {
+        setIndicesLoading(false)
+      }
+    }
+    fetchIndices()
   }, [])
 
   useEffect(() => {
-    fetchData()
-    const id = setInterval(fetchData, 60_000)
-    return () => clearInterval(id)
-  }, [fetchData])
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!dropdownOpen) return
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
+    const fetchStocks = async () => {
+      try {
+        const results = await Promise.allSettled(
+          POPULAR_SYMBOLS.map(async (symbol) => {
+            const res = await fetch(`/api/stocks/${symbol}?history=true`)
+            if (!res.ok) throw new Error(`Failed to fetch ${symbol}`)
+            const data = await res.json()
+            return { symbol, ...data } as StockData
+          })
+        )
+        const successful = results
+          .filter((r): r is PromiseFulfilledResult<StockData> => r.status === 'fulfilled')
+          .map((r) => r.value)
+        setStocks(successful)
+      } catch {
+        // stocks will remain empty; StockCard grid won't render
+      } finally {
+        setLoading(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [dropdownOpen])
+    fetchStocks()
+  }, [])
 
-  const isPositive = data ? data.isPositive : true
-  const green = '#26a69a'
-  const red = '#ef5350'
-  const color = isPositive ? green : red
+  const selectedStock = stocks.find((s) => s.symbol === selectedSymbol)
+
+  const filteredStocks = searchQuery
+    ? stocks.filter(
+        (s) =>
+          s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (s.quote.shortName ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : stocks
+
+  const toggleWatchlist = async (symbol: string) => {
+    const existing = watchlistItems.find((i) => i.symbol === symbol)
+    if (existing) {
+      await fetch('/api/watchlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: existing.id }),
+      })
+      setWatchlistItems((prev) => prev.filter((i) => i.symbol !== symbol))
+    } else {
+      if (!watchlistId) return
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, watchlist_id: watchlistId }),
+      })
+      const { data } = await res.json()
+      if (data) setWatchlistItems((prev) => [...prev, { id: data.id, symbol: data.symbol }])
+    }
+  }
+
+  // Dashboard widgets
+  const widgets: DashboardWidget[] = [
+    {
+      id: 'market-overview',
+      label: 'Market Overview',
+      content: (
+        <div>
+          <motion.h2
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-xl font-semibold mb-4"
+            style={{ color: 'var(--foreground)' }}
+          >
+            Market Overview
+          </motion.h2>
+          {indicesLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <SkeletonCard key={i} className="h-24" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {marketIndices.map((idx, i) => (
+                <StatCard
+                  key={idx.symbol}
+                  title={`${idx.name} · ${idx.category}`}
+                  value={idx.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  change={`${idx.isPositive ? '+' : ''}${idx.changePercent.toFixed(2)}%`}
+                  isPositive={idx.isPositive}
+                  delay={i * 0.1}
+                  icon={<BarChart2 size={18} />}
+                  meta={[
+                    { label: 'Symbol', value: idx.symbol },
+                    { label: 'Range', value: `${idx.dayLow?.toFixed(2) ?? 'N/A'} - ${idx.dayHigh?.toFixed(2) ?? 'N/A'}` },
+                    { label: 'Volume', value: formatCompactNumber(idx.volume) },
+                  ]}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'stock-chart',
+      label: 'Stock Chart',
+      content: selectedStock ? (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <StockChart
+            data={selectedStock.history}
+            symbol={selectedStock.symbol}
+            isPositive={(selectedStock.quote.regularMarketChange ?? 0) >= 0}
+          />
+        </motion.div>
+      ) : null,
+    },
+    {
+      id: 'stock-grid',
+      label: 'Popular Stocks',
+      content: (
+        <div>
+          {/* Search Bar */}
+          <div className="relative mb-4">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              size={18}
+              style={{ color: 'var(--text-secondary)' }}
+            />
+            <input
+              type="text"
+              placeholder="Search stocks by symbol or name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl outline-none text-sm border border-[var(--border)] bg-[var(--panel)] text-[var(--foreground)] placeholder:text-[var(--text-secondary)]"
+              style={{ boxShadow: 'var(--shadow-lg)' }}
+            />
+          </div>
+
+          <motion.h2
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-xl font-semibold mb-4 flex items-center gap-2"
+            style={{ color: 'var(--foreground)' }}
+          >
+            <Activity size={20} style={{ color: 'var(--accent)' }} />
+            Popular Stocks
+          </motion.h2>
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {POPULAR_SYMBOLS.map((s) => (
+                <SkeletonCard key={s} className="h-44" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {filteredStocks.map((stock, i) => (
+                <div
+                  key={stock.symbol}
+                  onClick={() => setSelectedSymbol(stock.symbol === selectedSymbol ? null : stock.symbol)}
+                >
+                  <StockCard
+                    symbol={stock.symbol}
+                    name={stock.quote.shortName ?? stock.symbol}
+                    price={stock.quote.regularMarketPrice ?? 0}
+                    change={stock.quote.regularMarketChange ?? 0}
+                    changePercent={stock.quote.regularMarketChangePercent ?? 0}
+                    volume={stock.quote.regularMarketVolume ?? 0}
+                    marketCap={stock.quote.marketCap}
+                    pe={null}
+                    high52w={stock.quote.fiftyTwoWeekHigh ?? 0}
+                    low52w={stock.quote.fiftyTwoWeekLow ?? 0}
+                    index={i}
+                    onAdd={toggleWatchlist}
+                    inWatchlist={watchlistItems.some((item) => item.symbol === stock.symbol)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && filteredStocks.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-16"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <Search size={48} className="mx-auto mb-4 opacity-30" />
+              <p className="text-lg">No stocks found for &quot;{searchQuery}&quot;</p>
+            </motion.div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'portfolio',
+      label: 'Portfolio',
+      content: <PortfolioTracker />,
+    },
+    {
+      id: 'news',
+      label: 'News',
+      content: (
+        <NewsFeed symbol={selectedSymbol ?? 'AAPL'} />
+      ),
+    },
+    {
+      id: 'earnings',
+      label: 'Earnings Calendar',
+      content: <EarningsCalendar />,
+    },
+  ].map((w) => w.id === 'stock-chart' && !selectedStock ? {
+    ...w,
+    content: (
+      <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: 'var(--text-secondary)' }}>
+        <BarChart size={48} className="opacity-20" />
+        <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>No stock selected</p>
+        <p className="text-xs">Click any stock card below to view its chart</p>
+      </div>
+    ),
+  } : w)
 
   return (
     <ErrorBoundary>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#131722' }}>
-        {/* Symbol bar */}
-        <div
-          style={{
-            height: 40,
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 24,
-            paddingLeft: 16,
-            paddingRight: 16,
-            background: '#1e222d',
-            borderBottom: '1px solid #2a2e39',
-          }}
+      <div className="min-h-screen">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="max-w-7xl mx-auto px-4 py-6"
         >
-          {/* Left section */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            {/* Symbol */}
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#d1d4dc', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-              {selected.tv}
-            </span>
-            {/* Exchange */}
-            <span style={{ fontSize: 11, color: '#787b86' }}>
-              {selected.exchange}
-            </span>
-            {/* Divider */}
-            <div style={{ width: 1, height: 16, background: '#2a2e39' }} />
-
-            {data ? (
-              <>
-                {/* Price */}
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#d1d4dc', fontFamily: 'monospace' }}>
-                  {fmtPrice(data.value)}
-                </span>
-                {/* Change abs */}
-                <span style={{ fontSize: 13, color, fontFamily: 'monospace' }}>
-                  {data.isPositive ? '+' : ''}{fmtPrice(Math.abs(data.change))}
-                </span>
-                {/* Change pct badge */}
-                <span
-                  style={{
-                    fontSize: 13,
-                    color,
-                    fontFamily: 'monospace',
-                    background: isPositive ? 'rgba(38,166,154,0.15)' : 'rgba(239,83,80,0.15)',
-                    padding: '1px 6px',
-                    borderRadius: 3,
-                  }}
-                >
-                  {data.isPositive ? '+' : ''}{data.changePercent.toFixed(2)}%
-                </span>
-                {/* Dot */}
-                <span style={{ color: '#787b86', fontSize: 11 }}>·</span>
-                {/* H / L */}
-                <span style={{ fontSize: 11, color: '#787b86', fontFamily: 'monospace' }}>
-                  H: <span style={{ color: '#d1d4dc' }}>{fmtPrice(data.dayHigh)}</span>
-                </span>
-                <span style={{ fontSize: 11, color: '#787b86', fontFamily: 'monospace' }}>
-                  L: <span style={{ color: '#d1d4dc' }}>{fmtPrice(data.dayLow)}</span>
-                </span>
-                {/* Vol */}
-                <span style={{ fontSize: 11, color: '#787b86', fontFamily: 'monospace' }}>
-                  Vol: <span style={{ color: '#d1d4dc' }}>{fmtCompact(data.volume)}</span>
-                </span>
-              </>
-            ) : (
-              <span style={{ fontSize: 12, color: '#787b86' }}>Loading…</span>
-            )}
-          </div>
-
-          {/* Right section: symbol dropdown */}
-          <div ref={dropdownRef} style={{ position: 'relative', flexShrink: 0 }}>
-            <button
-              onClick={() => setDropdownOpen(v => !v)}
-              style={{
-                height: 26,
-                padding: '0 10px',
-                background: '#131722',
-                border: '1px solid #2a2e39',
-                borderRadius: 3,
-                color: '#d1d4dc',
-                fontSize: 12,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              {selected.tv}
-              <span style={{ fontSize: 10, color: '#787b86' }}>▾</span>
-            </button>
-
-            {dropdownOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '100%',
-                  marginTop: 4,
-                  width: 220,
-                  background: '#1e222d',
-                  border: '1px solid #2a2e39',
-                  borderRadius: 4,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                  zIndex: 50,
-                  overflow: 'hidden',
-                }}
-              >
-                {SYMBOLS.map((sym, i) => (
-                  <button
-                    key={sym.tv}
-                    onClick={() => { setSelectedIdx(i); setDropdownOpen(false) }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      width: '100%',
-                      padding: '6px 10px',
-                      border: 'none',
-                      background: i === selectedIdx ? 'rgba(41,98,255,0.12)' : 'transparent',
-                      color: '#d1d4dc',
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={e => {
-                      if (i !== selectedIdx) (e.currentTarget as HTMLButtonElement).style.background = '#2a2e39'
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLButtonElement).style.background = i === selectedIdx ? 'rgba(41,98,255,0.12)' : 'transparent'
-                    }}
-                  >
-                    <span style={{ fontWeight: 700 }}>{sym.tv}</span>
-                    <span style={{ fontSize: 11, color: '#787b86' }}>{sym.name}</span>
-                  </button>
-                ))}
+          <div className="glass-panel-strong rounded-[1.75rem] p-4 md:p-5 mb-4">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <p className="section-kicker text-xs mb-2">Workspace</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-[var(--foreground)]">Market dashboard</h1>
+                <p className="text-sm text-[var(--text-secondary)] mt-2">Track live movers, manage your watchlist, and jump into charts without leaving the desk.</p>
               </div>
-            )}
+              <button
+                onClick={() => setIsDragMode(v => !v)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
+                  isDragMode
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--panel)] text-[var(--text-secondary)] border border-[var(--border)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                <GripHorizontal size={13} />
+                {isDragMode ? 'Done Rearranging' : 'Rearrange'}
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Chart area */}
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <StockChart
-            symbol={selected.yf}
-            isPositive={isPositive}
-            fillHeight
-          />
-        </div>
+          <DraggableGrid widgets={widgets} isDragMode={isDragMode} />
+        </motion.div>
       </div>
     </ErrorBoundary>
   )
@@ -262,15 +349,8 @@ function ChartPage() {
 
 export default function DashboardPage() {
   return (
-    <Suspense
-      fallback={
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#131722' }}>
-          <div style={{ height: 40, flexShrink: 0, background: '#1e222d' }} />
-          <div style={{ flex: 1 }} />
-        </div>
-      }
-    >
-      <ChartPage />
+    <Suspense>
+      <DashboardContent />
     </Suspense>
   )
 }
