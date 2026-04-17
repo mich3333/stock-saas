@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { StockDetailModal } from '@/components/stock/stock-detail-modal'
+import Link from 'next/link'
 
 const FALLBACK = [
   { symbol: 'AAPL', price: '189.30', change: '+1.25%', positive: true },
@@ -24,35 +24,25 @@ const FALLBACK = [
 
 type Ticker = { symbol: string; price: string; change: string; positive: boolean }
 
-interface TickerItemProps extends Ticker {
-  onClick: (symbol: string) => void
-}
-
-function TickerItem({ symbol, price, change, positive, onClick }: TickerItemProps) {
+function TickerItem({ symbol, price, change, positive }: Ticker) {
   return (
-    <button
-      onClick={() => onClick(symbol)}
+    <Link
+      href={`/screener?q=${symbol}`}
       className="ticker-mono flex items-center gap-2 px-4 py-0 flex-shrink-0 hover:opacity-80 transition-opacity"
-      style={{ textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer' }}
+      style={{ textDecoration: 'none' }}
     >
-      <span className="font-semibold text-xs" style={{ color: '#d1d4dc' }}>{symbol}</span>
-      <span className="text-xs" style={{ color: '#787b86' }}>{price}</span>
-      <span className="text-xs font-medium" style={{ color: positive ? '#26a69a' : '#ef5350' }}>{change}</span>
-      <span className="text-xs" style={{ color: '#2a2e39' }}>|</span>
-    </button>
+      <span className="font-semibold text-xs text-[var(--foreground)]">{symbol}</span>
+      <span className="text-xs text-[var(--text-secondary)]">{price}</span>
+      <span className="text-xs font-medium" style={{ color: positive ? 'var(--green)' : 'var(--red)' }}>{change}</span>
+      <span className="text-xs text-[var(--border-strong)]">|</span>
+    </Link>
   )
 }
 
 export default function TickerTape() {
-  const [mounted, setMounted] = useState(false)
   const [tickers, setTickers] = useState<Ticker[]>(FALLBACK)
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setMounted(true)
-    })
-
     const es = new EventSource('/api/ticker')
 
     es.addEventListener('ticker', (event: MessageEvent) => {
@@ -69,31 +59,21 @@ export default function TickerTape() {
     }
 
     return () => {
-      window.cancelAnimationFrame(frame)
       es.close()
     }
   }, [])
 
   const doubled = [...tickers, ...tickers]
 
-  if (!mounted) {
-    return <div className="w-full h-9 border-b border-[#2a2e39] bg-[#1e222d]" />
-  }
-
   return (
-    <>
-      <div
-        className="w-full overflow-hidden flex items-center flex-shrink-0"
-        style={{ height: 36, borderBottom: '1px solid #2a2e39', background: '#1e222d' }}
-      >
-        <div className="ticker-scroll flex items-center">
-          {doubled.map((ticker, i) => (
-            <TickerItem key={`${ticker.symbol}-${i}`} {...ticker} onClick={setSelectedSymbol} />
-          ))}
-        </div>
+    <div
+      className="w-full overflow-hidden flex items-center h-11 flex-shrink-0 border-b border-[var(--border)] bg-[color:var(--panel-strong)]"
+    >
+      <div className="ticker-scroll flex items-center">
+        {doubled.map((ticker, i) => (
+          <TickerItem key={`${ticker.symbol}-${i}`} {...ticker} />
+        ))}
       </div>
-
-      <StockDetailModal symbol={selectedSymbol} onClose={() => setSelectedSymbol(null)} />
-    </>
+    </div>
   )
 }

@@ -4,32 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { SubscriptionStatus } from '@/components/subscription/subscription-status'
 import { PriceAlerts } from '@/components/alerts/price-alerts'
-import { User } from 'lucide-react'
-
-const TV = {
-  bg:     '#131722',
-  panel:  '#1e222d',
-  border: '#2a2e39',
-  text:   '#d1d4dc',
-  muted:  '#787b86',
-  accent: '#2962ff',
-} as const
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 10, fontWeight: 700, color: TV.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-      {children}
-    </div>
-  )
-}
-
-function Panel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ background: TV.panel, border: `1px solid ${TV.border}`, borderRadius: 6, padding: '16px 18px' }}>
-      {children}
-    </div>
-  )
-}
+import { Button } from '@/components/ui/button'
+import { TrendingUp, LogOut, Settings, User } from 'lucide-react'
 
 function SettingsPageContent() {
   const router = useRouter()
@@ -64,100 +40,133 @@ function SettingsPageContent() {
       setSaveMessage(error.message)
     } else {
       setUserName(editName)
-      setSaveMessage('Saved')
+      setSaveMessage('Profile updated')
     }
     setSaving(false)
     setTimeout(() => setSaveMessage(null), 3000)
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
   return (
-    <div style={{ padding: '20px 24px', maxWidth: 720, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 16, fontWeight: 700, color: TV.text, margin: '0 0 20px' }}>Settings</h1>
+    <div className="app-shell min-h-screen">
+      {/* Navbar */}
+      <nav
+        className="glass-panel px-6 h-16 flex items-center justify-between sticky top-0 z-40 border-b"
+      >
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2">
+            <TrendingUp className="text-[var(--accent)]" size={22} />
+            <span className="font-bold text-lg text-[var(--foreground)]">StockFlow</span>
+          </button>
+          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+            <span>/</span>
+            <span className="font-medium ml-1 text-[var(--foreground)]">Settings</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-full transition-colors text-[var(--text-secondary)] hover:bg-[var(--accent-soft)]"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </nav>
 
-      {/* Profile */}
-      <div style={{ marginBottom: 20 }}>
-        <SectionLabel>Profile</SectionLabel>
-        <Panel>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%',
-              background: 'rgba(41,98,255,0.18)',
-              border: '1px solid rgba(41,98,255,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <User size={18} style={{ color: TV.accent }} />
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Settings size={22} className="text-[var(--accent)]" />
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Settings</h1>
+        </div>
+
+        {/* Profile section */}
+        <section>
+          <h2
+            className="section-kicker text-xs font-semibold uppercase tracking-wider mb-3"
+          >
+            Profile
+          </h2>
+          <div
+            className="glass-panel-strong rounded-[1.75rem] p-6"
+          >
+            <div className="flex items-center gap-4 mb-5">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--accent-soft)', border: '1px solid var(--border)' }}
+              >
+                <User size={22} className="text-[var(--accent)]" />
+              </div>
+              <div>
+                {userName && (
+                  <p className="font-semibold text-[var(--foreground)]">{userName}</p>
+                )}
+                <p className="text-sm text-[var(--text-secondary)]">{userEmail ?? '...'}</p>
+              </div>
             </div>
-            <div>
-              {userName && <div style={{ fontSize: 13, fontWeight: 600, color: TV.text }}>{userName}</div>}
-              <div style={{ fontSize: 12, color: TV.muted }}>{userEmail ?? '…'}</div>
+
+            {/* Edit name */}
+            <div className="space-y-3">
+              <div>
+                <label
+                  className="section-kicker block text-xs font-medium mb-1 uppercase tracking-wider"
+                >
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="auth-input text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  onClick={handleUpdateProfile}
+                  loading={saving}
+                  disabled={saving || editName === (userName ?? '')}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+                {saveMessage && (
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: saveMessage === 'Profile updated' ? 'var(--green)' : 'var(--red)' }}
+                  >
+                    {saveMessage}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+        </section>
 
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: TV.muted, marginBottom: 6 }}>Display Name</div>
-            <input
-              type="text"
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              placeholder="Enter your name"
-              style={{
-                width: '100%',
-                height: 32,
-                padding: '0 10px',
-                background: TV.bg,
-                border: `1px solid ${TV.border}`,
-                borderRadius: 4,
-                color: TV.text,
-                fontSize: 13,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = TV.accent }}
-              onBlur={e => { e.currentTarget.style.borderColor = TV.border }}
-            />
-          </div>
+        {/* Subscription / Billing section */}
+        <section>
+          <h2
+            className="section-kicker text-xs font-semibold uppercase tracking-wider mb-3"
+          >
+            Subscription &amp; Billing
+          </h2>
+          <Suspense fallback={<div className="glass-panel-strong rounded-[1.75rem] p-6 animate-pulse h-72" />}>
+            <SubscriptionStatus />
+          </Suspense>
+        </section>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              onClick={handleUpdateProfile}
-              disabled={saving || editName === (userName ?? '')}
-              style={{
-                height: 30,
-                padding: '0 14px',
-                background: saving || editName === (userName ?? '') ? TV.border : TV.accent,
-                border: 'none',
-                borderRadius: 4,
-                color: saving || editName === (userName ?? '') ? TV.muted : '#fff',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: saving || editName === (userName ?? '') ? 'default' : 'pointer',
-              }}
-            >
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
-            {saveMessage && (
-              <span style={{ fontSize: 12, color: saveMessage === 'Saved' ? '#26a69a' : '#ef5350' }}>
-                {saveMessage}
-              </span>
-            )}
-          </div>
-        </Panel>
-      </div>
-
-      {/* Subscription & Billing */}
-      <div style={{ marginBottom: 20 }}>
-        <SectionLabel>Subscription &amp; Billing</SectionLabel>
-        <Suspense fallback={
-          <div style={{ background: TV.panel, border: `1px solid ${TV.border}`, borderRadius: 6, height: 120 }} />
-        }>
-          <SubscriptionStatus />
-        </Suspense>
-      </div>
-
-      {/* Price Alerts */}
-      <div style={{ marginBottom: 20 }}>
-        <SectionLabel>Price Alerts</SectionLabel>
-        <PriceAlerts />
+        {/* Price Alerts section */}
+        <section>
+          <h2
+            className="section-kicker text-xs font-semibold uppercase tracking-wider mb-3"
+          >
+            Price Alerts
+          </h2>
+          <PriceAlerts />
+        </section>
       </div>
     </div>
   )
@@ -165,7 +174,7 @@ function SettingsPageContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div style={{ background: '#131722', minHeight: '100%' }} />}>
+    <Suspense fallback={<div className="app-shell min-h-screen" />}>
       <SettingsPageContent />
     </Suspense>
   )

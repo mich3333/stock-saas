@@ -10,9 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "test:coverage": "jest --coverage",
-    "postinstall": "npm run copy-files",
-    "copy-files": "mkdir -p public/charting_library && cp -R node_modules/charting_library/* public/charting_library/"
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -38,8 +36,7 @@
     "tailwind-merge": "^3.5.0",
     "yahoo-finance2": "^3.13.2",
     "zod": "^4.3.6",
-    "zustand": "^5.0.11",
-    "charting_library": "git@github.com:tradingview/charting_library.git#semver:28.0.0"
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -2,15 +2,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ChartPoint } from '@/types'
 
-export type Timeframe = '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y'
+export type Timeframe = '1D' | '5D' | '1M' | '3M' | '6M' | '1Y' | '5Y'
 
 // Maps UI timeframes to API period params
 const PERIOD_MAP: Record<Timeframe, string> = {
+  '1D': '1d',
+  '5D': '5d',
   '1M': '1mo',
   '3M': '3mo',
   '6M': '6mo',
   '1Y': '1y',
-  '2Y': '2y',
   '5Y': '5y',
 }
 

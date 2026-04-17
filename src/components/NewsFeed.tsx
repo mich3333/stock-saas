@@ -21,11 +21,11 @@ export function NewsFeed({ collapsed, onToggle }: NewsFeedProps) {
     return (
       <div
         className="flex flex-col items-center py-4 gap-3 cursor-pointer"
-        style={{ width: 34, background: '#1e222d', borderLeft: '1px solid #2a2e39' }}
+        style={{ width: 40, background: '#1E222D', borderLeft: '1px solid #2A2E39' }}
       >
         <button
           onClick={onToggle}
-          className="p-1 rounded hover:bg-[#2a2e39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
+          className="p-1 rounded hover:bg-[#2A2E39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
           title="Expand panel"
         >
           <ChevronLeft size={16} />
@@ -38,23 +38,19 @@ export function NewsFeed({ collapsed, onToggle }: NewsFeedProps) {
   return (
     <div
       className="flex flex-col h-full"
-      style={{ width: 258, background: '#1e222d', borderLeft: '1px solid #2a2e39', flexShrink: 0, overflow: 'hidden' }}
+      style={{ width: 280, background: '#1E222D', borderLeft: '1px solid #2A2E39', flexShrink: 0 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3" style={{ borderBottom: '1px solid #2a2e39', height: 32 }}>
-        <div className="flex gap-0 h-full">
+      <div className="flex items-center justify-between px-3 py-3" style={{ borderBottom: '1px solid #2A2E39' }}>
+        <div className="flex gap-1">
           {(['news', 'ideas'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className="px-3 text-[11px] capitalize font-medium transition-colors"
+              className="px-2 py-1 text-xs rounded capitalize font-medium transition-colors"
               style={{
-                background: 'transparent',
-                border: 'none',
-                borderBottom: activeTab === tab ? '2px solid #2962ff' : '2px solid transparent',
-                color: activeTab === tab ? '#d1d4dc' : '#787b86',
-                cursor: 'pointer',
-                lineHeight: '30px',
+                background: activeTab === tab ? '#2A2E39' : 'transparent',
+                color: activeTab === tab ? '#D1D4DC' : '#787B86',
               }}
             >
               {tab}
@@ -63,7 +59,7 @@ export function NewsFeed({ collapsed, onToggle }: NewsFeedProps) {
         </div>
         <button
           onClick={onToggle}
-          className="p-1 rounded hover:bg-[#2a2e39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
+          className="p-1 rounded hover:bg-[#2A2E39] text-[#787B86] hover:text-[#D1D4DC] transition-colors"
           title="Collapse panel"
         >
           <ChevronRight size={14} />
@@ -81,9 +77,9 @@ export function NewsFeed({ collapsed, onToggle }: NewsFeedProps) {
                 <a
                   key={item.id}
                   href={item.url}
-                  className="flex gap-2 px-3 py-2.5 transition-colors"
-                  style={{ borderBottom: '1px solid #2a2e39' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#161a25')}
+                  className="flex gap-2 px-3 py-3 transition-colors"
+                  style={{ borderBottom: '1px solid #2A2E39' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#131722')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div
@@ -93,14 +89,14 @@ export function NewsFeed({ collapsed, onToggle }: NewsFeedProps) {
                     <Icon size={11} style={{ color: cfg.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] leading-snug line-clamp-2 mb-1" style={{ color: '#D1D4DC' }}>
+                    <p className="text-xs leading-snug line-clamp-2 mb-1" style={{ color: '#D1D4DC' }}>
                       {item.headline}
                     </p>
                     <div className="flex items-center gap-2">
                       {item.symbol && (
                         <span
                           className="text-[9px] px-1 py-0.5 rounded font-bold"
-                          style={{ background: '#2a2e39', color: '#2962FF' }}
+                          style={{ background: '#2A2E39', color: '#2962FF' }}
                         >
                           {item.symbol}
                         </span>

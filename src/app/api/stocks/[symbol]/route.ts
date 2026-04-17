@@ -53,7 +53,6 @@ export async function GET(
     const includeHistory = searchParams.get('history') === 'true'
     const rawPeriod = searchParams.get('period') ?? '1mo'
     const period = (VALID_PERIODS.has(rawPeriod) ? rawPeriod : '1mo') as '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y'
-    // Note: '2y' was already in VALID_PERIODS but not exposed in UI — now surfaced in chart
 
     const quote = await cacheWrapper(`quote:${sym}`, CACHE_TTL.STOCK_QUOTE, () => getStockQuote(sym))
 
